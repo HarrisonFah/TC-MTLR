@@ -20,7 +20,7 @@ arch:
 preprocessed_data: False
 dataset_kwargs:
   horizon: 5
-  data_path: ../data/aids-seqs.pkl
+  data_path: data/AIDS.pkl
 
 lambda_: 0.0
 num_steps: 5

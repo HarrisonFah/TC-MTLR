@@ -20,7 +20,7 @@ arch:
 preprocessed_data: False
 dataset_kwargs:
   horizon: 16
-  data_path: data/pbc-seqs.pkl
+  data_path: data/PBC.pkl
 
 lambda_: 0.0
 num_steps: 5
