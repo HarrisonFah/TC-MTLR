@@ -92,7 +92,9 @@ def pad_sequences(seqs, max_length):
 def get_data(dataset_name, landmark, calculate_tgt_and_mask, kwargs):
     loaders = {'aids': get_data_baseline,
                'pbc2': get_data_baseline,
+               'nasa': get_data_baseline,
                'placeholder': get_placeholder,
+               'small_rw': get_data_baseline,
                'big_rw': get_data_baseline,
                'single_task': get_single_task_dataset,
                'mixed_tasks': get_mixed_task_dataset,
