@@ -3,23 +3,24 @@ import numpy as np
 import pickle
 
 N_SEQUENCES = 10000
-DIM = 20
-HORIZON = 10 #10 for small, 100 for large
-b = -3
+DIM = 50 #20 for small, 50 for large
+HORIZON = 100 #10 for small, 100 for large
+mu = 0 #mean for initialization
+b = -5 #0 for small, -5 for large
 w = 0.5
 
-output_path = '../data/SmallRW.pkl'
+output_path = '../data/LargeRW.pkl'
 
 def sigmoid(x):
   return 1 / (1 + math.exp(-x))
 
-def terminate(x):
-    gamma = np.random.normal(size=(DIM,))
-    prob = sigmoid(np.matmul(gamma, x) + b)
-    return prob > 0.5
+def terminate(x, gamma):
+    p = sigmoid(np.matmul(gamma, x) + b)
+    sample = np.random.binomial(1, p, size=None)
+    return sample
 
-def random_walk():
-    x = np.random.normal(loc=np.zeros((DIM,)), scale=np.ones((DIM,)), size=(DIM,)) #initialize state
+def random_walk(gamma):
+    x = np.random.normal(loc=np.full((DIM,), mu), scale=np.ones((DIM,)), size=(DIM,)) #initialize state
     #walk until termination or reaching horizon (censored)
     seq = []
     r = []
@@ -29,7 +30,7 @@ def random_walk():
         t += 1
         r.append(1)
         seq.append(x)
-        if terminate(x):
+        if terminate(x, gamma):
             c = False
             break
         x = np.random.normal(loc=x, scale=np.full(x.shape, w**2), size=x.shape)
@@ -42,9 +43,15 @@ def main():
     ts = []
     rs = []
     seqs_ts = []
+    censor_count = 0
+    seq_lens = []
+    gamma = np.random.normal(loc=np.zeros((DIM,)), scale=np.ones((DIM,)), size=(DIM,))
     for seq_idx in range(N_SEQUENCES):
-        seq, c, t, r, seq_t = random_walk()
+        seq, c, t, r, seq_t = random_walk(gamma)
         seqs.append(seq)
+        seq_lens.append(len(seq))
+        if c:
+            censor_count += 1
         cs.append(c)
         ts.append(t)
         rs.append(r)
@@ -65,6 +72,8 @@ def main():
     }
     with open(output_path, 'wb') as f:
         pickle.dump(rw_dict, f) 
+    print(f"Censor Count (%): {censor_count} ({censor_count/N_SEQUENCES*100})")
+    print(f"Average Length (std.dev): {np.mean(seq_lens)} ({np.std(seq_lens)})")
 
 main()
         
