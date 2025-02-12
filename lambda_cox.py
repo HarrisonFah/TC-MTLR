@@ -23,28 +23,23 @@ def bce_logits(targets, logits):
 
 class LambdaSA(BaseSA):
 
-    def __init__(self, config_kwargs, seed, name="TCSR", **kwargs):
+    def __init__(self, config_kwargs, seed=42, name="TCSR", **kwargs):
         super().__init__(config_kwargs, seed, name, **kwargs)
 
         new_config = Config.from_dict(config_kwargs)
         self.lambda_ = new_config.lambda_
         self.num_steps = new_config.num_steps
 
-    def get_train_test(self, test_size=0.2):
-        subkey = self._next_rng_key()
-        X_train, X_test, _, _, _, _,\
-           ts_train, ts_test, cs_train, cs_test = train_test_split(self.data['seqs'],
-                               self.data['target'],
-                               self.data['mask'],
-                               self.data['ts'],
-                               self.data['cs'],
-                               seed=self.seed,
-                               test_size=test_size)
+    def get_train_val_test(self, data_arrays):
+        X_train, X_val, X_test, y_train, y_val, y_test, hws_train, hws_val, hws_test, \
+        m_train, m_val, m_test, ts_train, ts_val, ts_test, cs_train, cs_val, cs_test, \
+        rs_train, rs_val, rs_test, seqs_ts_train, seqs_ts_val, seqs_ts_test = data_arrays
         
-        X_train, X_test, ts_train, ts_test, cs_train, cs_test = convert_to_jax_arrays(X_train, X_test, ts_train, ts_test, cs_train, cs_test)
+        X_train, X_val, X_test, ts_train, ts_val, ts_test, cs_train, cs_val, cs_test = convert_to_jax_arrays(X_train, X_val, X_test, ts_train, ts_val, ts_test, cs_train, cs_val, cs_test)
         
         if self.config.landmark:
             X_train, ts_train, cs_train = unroll(X_train, ts_train, cs_train)
+            X_val, ts_val, cs_val = unroll(X_val, ts_val, cs_val)
             X_test, ts_test, cs_test = unroll(X_test, ts_test, cs_test)
 
         return X_train, X_test, ts_train, ts_test, cs_train, cs_test

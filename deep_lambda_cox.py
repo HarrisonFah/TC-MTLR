@@ -102,7 +102,7 @@ def _get_weights(s_wgt, h_wgt, h_tgt, c, lambda_, T, b_size):
 
 class DeepLambdaSA(BaseSA):
 
-    def __init__(self, config_kwargs, seed, name="DeepTCSR", **kwargs):
+    def __init__(self, config_kwargs, seed=42, name="DeepTCSR", **kwargs):
         super().__init__(config_kwargs, seed, name, **kwargs)
 
         config = Config.from_dict(config_kwargs)
@@ -190,33 +190,32 @@ class DeepLambdaSA(BaseSA):
 
         self.update = jax.jit(update)
 
-    def get_train_test(self, test_size=.2):
+    def get_train_val_test(self, data_arrays):
         if self.config.calculate_tgt_and_mask:
             data_manager = TimesDataGenerator
         else:
             data_manager = LazyTimesDataGenerator
 
-        subkey = self._next_rng_key()
-        X_train, X_test, y_train, y_test, hws_train, hws_test, \
-            m_train, m_test, ts_train, ts_test, cs_train, cs_test = train_test_split(self.data['seqs'],
-                                                                                     self.data['target'],
-                                                                                     self.data['h_ws'],
-                                                                                     self.data['mask'],
-                                                                                     self.data['ts'],
-                                                                                     self.data['cs'],
-                                                                                     seed=self.seed,
-                                                                                     test_size=test_size)
-        subkey = self._next_rng_key()
+        X_train, X_val, X_test, y_train, y_val, y_test, hws_train, hws_val, hws_test, \
+        m_train, m_val, m_test, ts_train, ts_val, ts_test, cs_train, cs_val, cs_test, \
+        rs_train, rs_val, rs_test, seqs_ts_train, seqs_ts_val, seqs_ts_test = data_arrays
+
         train_gen = data_manager(X=X_train, h_ws=hws_train,
                                  ts=ts_train, cs=cs_train,
                                  y=y_train, mask=m_train,
-                                 batch_size=self.config.batch_size, rng=subkey)
-        subkey = self._next_rng_key()
+                                 batch_size=self.config.batch_size)
+
+        val_gen = data_manager(X=X_val, h_ws=hws_val,
+                                 ts=ts_val, cs=cs_val,
+                                 y=y_val, mask=m_val,
+                                 batch_size=self.config.batch_size)
+
         test_gen = data_manager(X=X_test, h_ws=hws_test,
                                 ts=ts_test, cs=cs_test,
                                 y=y_test, mask=m_test,
-                                batch_size=self.config.batch_size, rng=subkey)
-        return train_gen, test_gen
+                                batch_size=self.config.batch_size)
+
+        return train_gen, val_gen, test_gen
 
     def train(self, train_gen=None, test_gen=None):
 

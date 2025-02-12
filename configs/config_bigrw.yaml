@@ -1,4 +1,4 @@
-dataset_name: big_rw
+dataset_name: large_rw
 axis: 2  # For lambda baseline this has to be 1.
 batch_size: 128
 learning_rate: .01
@@ -20,7 +20,7 @@ arch:
 preprocessed_data: False
 dataset_kwargs:
   horizon: 100
-  data_path: ../data/bigrw-seqs.pkl
+  data_path: data/LargeRW.pkl
 
 lambda_: 0.0
 num_steps: 5

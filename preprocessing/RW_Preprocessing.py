@@ -3,13 +3,13 @@ import numpy as np
 import pickle
 
 N_SEQUENCES = 10000
-DIM = 50 #20 for small, 50 for large
-HORIZON = 100 #10 for small, 100 for large
+DIM = 20 #20 for small, 50 for large
+HORIZON = 10 #10 for small, 100 for large
 mu = 0 #mean for initialization
-b = -5 #0 for small, -5 for large
+b = 0 #0 for small, -5 for large
 w = 0.5
 
-output_path = '../data/LargeRW.pkl'
+output_path = '../data/SmallRW.pkl'
 
 def sigmoid(x):
   return 1 / (1 + math.exp(-x))
