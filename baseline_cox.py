@@ -72,17 +72,21 @@ class SA(BaseSA):
         subkey = self._next_rng_key()
         train_gen = data_manager(X=X_train,
                                  ts=ts_train, cs=cs_train,
-                                 y=y_train, mask=m_train,
+                                 y=y_train, rs=rs_train,
+                                 seqs_ts=seqs_ts_train, mask=m_train,
                                  batch_size=self.config.batch_size, rng=subkey)
+        self.set_time_bins(train_gen)
         subkey = self._next_rng_key()
         val_gen = data_manager(X=X_val,
                                  ts=ts_val, cs=cs_val,
-                                 y=y_val, mask=m_val,
+                                 y=y_val, rs=rs_val,
+                                 seqs_ts=seqs_ts_val, mask=m_val,
                                  batch_size=self.config.batch_size, rng=subkey)
         subkey = self._next_rng_key()
         test_gen = data_manager(X=X_test,
                                 ts=ts_test, cs=cs_test,
-                                y=y_test, mask=m_test,
+                                y=y_test, rs=rs_test,
+                                seqs_ts=seqs_ts_test, mask=m_test,
                                 batch_size=self.config.batch_size, rng=subkey)
         return train_gen, val_gen, test_gen
 

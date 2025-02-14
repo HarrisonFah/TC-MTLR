@@ -378,8 +378,11 @@ def get_targets_and_masks(seqs, ts, cs, landmark):
         target, h_w, mask = get_single_target_and_mask(
             seq, t, c, landmark=landmark)
         targets.append(target)
+        print('target:', target)
         h_ws.append(h_w)
+        print('h_w:', h_w)
         masks.append(mask)
+        print('mask:', mask)
 
     target = np.stack(targets)
     mask = np.stack(masks).astype(bool)
@@ -461,11 +464,13 @@ def train_val_test_split(X, target, h_ws, mask, ts, cs, rs, seqs_ts, seed, val_s
 
 class BaseDataGenerator:
 
-    def __init__(self, X, ts, cs, y, mask, batch_size, rng, h_ws=None, shuffle=True):
+    def __init__(self, X, ts, cs, y, rs, seqs_ts, mask, batch_size, rng=None, h_ws=None, shuffle=True):
         self.X = X
         self.y = y
         self.ts = ts
         self.cs = cs
+        self.rs = rs
+        self.seqs_ts = seqs_ts
         self.mask = mask
         self.shuffle = shuffle
         self.rng = rng
@@ -489,6 +494,59 @@ class BaseDataGenerator:
         # try:
         batch = next(self.generator)
         return batch
+
+    def get_all_data(self):
+        X = self.X
+        ts = self.ts
+        cs = self.cs
+        rs = self.rs
+        seqs_ts = self.seqs_ts
+        num_samples = X.shape[0]
+
+        terminal = np.full((1,X[0].shape[1]), -1) #filler used for terminal state (ignored due to not_done)
+
+        state = None
+        next_state = None
+        reward = None
+        not_done = None
+        censors = None
+        times = None
+        for idx in range(num_samples):
+            censored = cs[idx]
+            end_idx = ts[idx] - censored
+            if state is None:
+                if censored:
+                    state = X[idx,:end_idx-1]
+                    reward = rs[idx, :end_idx-1]
+                    not_done = np.ones((end_idx-1, 1))
+                    censors = np.full((end_idx-1, 1), censored)
+                    times = seqs_ts[idx,:end_idx-1]
+                else:
+                    state = X[idx,:end_idx]
+                    reward = rs[idx, :end_idx]
+                    not_done = np.ones((end_idx, 1))
+                    censors = np.full((end_idx, 1), censored)
+                    times = seqs_ts[idx,:end_idx]
+                next_state = X[idx, 1:end_idx]
+            else:
+                if censored:
+                    state = np.concatenate((state, X[idx,:end_idx-1]))
+                    reward = np.concatenate((reward, rs[idx, :end_idx-1]), axis=None)
+                    not_done = np.concatenate((not_done, np.ones((end_idx-1, 1))), axis=None)
+                    censors = np.concatenate((censors, np.full((end_idx-1, 1), censored)), axis=None)
+                    times = np.concatenate((times, seqs_ts[idx,:end_idx-1]), axis=None)
+                else:
+                    state = np.concatenate((state, X[idx,:end_idx]))
+                    reward = np.concatenate((reward, rs[idx, :end_idx]), axis=None)
+                    not_done = np.concatenate((not_done, np.ones((end_idx, 1))), axis=None)
+                    censors = np.concatenate((censors, np.full((end_idx, 1), censored)), axis=None)
+                    times = np.concatenate((times, seqs_ts[idx,:end_idx]), axis=None)
+                next_state = np.concatenate((next_state, X[idx, 1:end_idx]))
+            if not censored:
+                next_state = np.concatenate((next_state, terminal))
+                not_done[-1] = 0
+
+        return state, next_state, reward, not_done, times, censors
 
 
 class TgtMskDataGenerator(BaseDataGenerator):
@@ -569,18 +627,7 @@ class LazyTimesDataGenerator(BaseDataGenerator):
             batch_cs = cs[idx]
             yield batch_X, batch_ts, batch_cs
 
-class MTLRDataGenerator:
-
-    def __init__(self, X, ts, cs, rs, seqs_ts, batch_size, shuffle=True):
-        self.X = X
-        self.ts = ts
-        self.cs = cs
-        self.rs = rs
-        self.seqs_ts = seqs_ts
-        self.shuffle = shuffle
-        self.batch_size = batch_size
-        self.generator = self.batch_generator()
-
+class MTLRDataGenerator(BaseDataGenerator):
     def batch_generator(self):
         X = self.X
         ts = self.ts
@@ -639,74 +686,6 @@ class MTLRDataGenerator:
                     next_state = np.concatenate((next_state, terminal))
                     not_done[-1] = 0
             yield state, next_state, reward, not_done, censors, times
-
-    def get_all_data(self):
-        X = self.X
-        ts = self.ts
-        cs = self.cs
-        rs = self.rs
-        seqs_ts = self.seqs_ts
-        num_samples = X.shape[0]
-
-        terminal = np.full((1,X[0].shape[1]), -1) #filler used for terminal state (ignored due to not_done)
-
-        state = None
-        next_state = None
-        reward = None
-        not_done = None
-        censors = None
-        times = None
-        for idx in range(num_samples):
-            censored = cs[idx]
-            end_idx = ts[idx] - censored
-            if state is None:
-                if censored:
-                    state = X[idx,:end_idx-1]
-                    reward = rs[idx, :end_idx-1]
-                    not_done = np.ones((end_idx-1, 1))
-                    censors = np.full((end_idx-1, 1), censored)
-                    times = seqs_ts[idx,:end_idx-1]
-                else:
-                    state = X[idx,:end_idx]
-                    reward = rs[idx, :end_idx]
-                    not_done = np.ones((end_idx, 1))
-                    censors = np.full((end_idx, 1), censored)
-                    times = seqs_ts[idx,:end_idx]
-                next_state = X[idx, 1:end_idx]
-            else:
-                if censored:
-                    state = np.concatenate((state, X[idx,:end_idx-1]))
-                    reward = np.concatenate((reward, rs[idx, :end_idx-1]), axis=None)
-                    not_done = np.concatenate((not_done, np.ones((end_idx-1, 1))), axis=None)
-                    censors = np.concatenate((censors, np.full((end_idx-1, 1), censored)), axis=None)
-                    times = np.concatenate((times, seqs_ts[idx,:end_idx-1]), axis=None)
-                else:
-                    state = np.concatenate((state, X[idx,:end_idx]))
-                    reward = np.concatenate((reward, rs[idx, :end_idx]), axis=None)
-                    not_done = np.concatenate((not_done, np.ones((end_idx, 1))), axis=None)
-                    censors = np.concatenate((censors, np.full((end_idx, 1), censored)), axis=None)
-                    times = np.concatenate((times, seqs_ts[idx,:end_idx]), axis=None)
-                next_state = np.concatenate((next_state, X[idx, 1:end_idx]))
-            if not censored:
-                next_state = np.concatenate((next_state, terminal))
-                not_done[-1] = 0
-
-        return state, next_state, reward, not_done, times, censors
-
-    def __iter__(self):
-        return self
-
-    def __len__(self):
-        return ceil(len(self.X)/self.batch_size)
-
-    def reset(self):
-        self.generator = self.batch_generator()
-
-    def __next__(self):
-        # try:
-        batch = next(self.generator)
-        return batch
-
 
 def kaplan_meier(ts, cs):
     """Kaplan-Meier estimator of survival curve."""
@@ -795,53 +774,19 @@ def convert_to_jax_arrays(*numpy_arrays):
     jax_arrays = (jnp.asarray(arr) for arr in numpy_arrays)
     return jax_arrays
 
-def median_time_bins(config_kwargs, seed, val_size=.15, test_size=.20):
-    config = ConfigParams.from_dict(config_kwargs)
-    H = config.dataset_kwargs['horizon']
-    horizon = H
-    calculate_tgt_and_mask_at_epoch = not config.calculate_tgt_and_mask
-
-    seqs, ts, cs, h_tgt, h_ws, mask, rs, seqs_ts = get_data(config.dataset_name,
-													   config.landmark,
-													   config.calculate_tgt_and_mask,
-													   config.dataset_kwargs)
-    seqs = seqs.astype(np.float32)
-
-    data = {'seqs': seqs,
-            'ts': ts,
-            'cs': cs,
-            'h_ws': h_ws,
-            'target': h_tgt,
-            'mask': mask,
-            'rs': rs,
-            'seqs_ts': seqs_ts}
-
-    X_train, X_val, X_test, y_train, y_val, y_test, hws_train, hws_val, hws_test, \
-    m_train, m_val, m_test, ts_train, ts_val, ts_test, cs_train, cs_val, cs_test, \
-    rs_train, rs_val, rs_test, seqs_ts_train, seqs_ts_val, seqs_ts_test = train_val_test_split(data['seqs'],
-                                                                data['target'],
-                                                                data['h_ws'],
-                                                                data['mask'],
-                                                                data['ts'],
-                                                                data['cs'],
-                                                                data['rs'],
-                                                                data['seqs_ts'],
-                                                                seed=seed,
-                                                                val_size=val_size,
-                                                                test_size=test_size)
-
-    rewards = None
-    for idx in range(0, rs_train.shape[0]):
-        censored = cs_train[idx]
-        end_idx = ts_train[idx] - int(censored)
-        if rewards is None:
-            rewards = rs_train[idx, 1:end_idx]
-        else:
-            rewards = np.concatenate((rewards, rs_train[idx, 1:end_idx]), axis=None)
+def median_time_bins(train_gen, horizon):
+    _, _, rewards, _, _, _  = train_gen.get_all_data()
     
     reward_median = np.median(rewards).item()
     time_bins = []
-    for idx in range(horizon):
+    for idx in range(horizon+1):
         time_bins.append(reward_median*idx)
 
     return time_bins
+
+def quantile_time_bins(train_gen, horizon):
+    _, _, _, _, times, censors  = train_gen.get_all_data()
+    times = times[censors == 0]
+    bins = np.quantile(times, np.linspace(0, 1, horizon+1))
+    bins[0] = 0
+    return bins

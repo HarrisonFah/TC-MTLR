@@ -10,7 +10,7 @@ from lambda_cox import LambdaSA
 from baseline_cox import SA
 from deep_lambda_cox import DeepLambdaSA
 from tc_mtlr import TC_MTLR
-from utils import median_time_bins
+from utils import median_time_bins, quantile_time_bins
 
 
 os.environ["XLA_PYTHON_CLIENT_MEM_FRACTION"] = "0.9"  # see XXXX
@@ -60,28 +60,35 @@ if __name__ == '__main__':
                                exp_name)
     config['output_file'] = output_file
 
+    lambda_cox=False
     if type_agent == "SA":
         agent = SA(config, seed)
     elif type_agent == 'LambdaSA':
         agent = LambdaSA(config, seed)
+        lambda_cox=True
     elif type_agent == 'DeepLambdaSA':
         agent = DeepLambdaSA(config, seed)
     elif type_agent == 'TC_MTLR':
         config['layer_size'] = 16
         config['num_hidden'] = 1
-        config['time_bins'] = median_time_bins(config, seed)
         agent = TC_MTLR(config, seed)
     else:
         raise Exception('Agent type not found')
 
     try:
         # import ipdb; ipdb.set_trace()
-        train_gen, val_gen, test_gen = agent.get_train_val_test(test_size=size)
+        if type_agent == 'LambdaSA':
+            X_train, ts_train, cs_train, train_gen, val_gen, test_gen = agent.get_train_val_test(test_size=size)
+            agent.train(X_train, ts_train, cs_train)
+        else:
+            train_gen, val_gen, test_gen = agent.get_train_val_test(test_size=size)
+            agent.train(train_gen)
+        #time_bins = median_time_bins(train_gen, agent.horizon)
+        #time_bins = quantile_time_bins(train_gen, agent.horizon)
         #train_gen, test_gen = agent.get_train_test(test_size=size)
-        agent.train(train_gen)
         #agent.save()
         #agent.eval(test_gen)
-        isds, cindex, ibs, mae_uncensored, mae_hinge, mae_po = agent.eval(train_gen, test_gen, agent.time_bins)
+        isds, cindex, ibs, mae_uncensored, mae_hinge, mae_po = agent.eval(train_gen, test_gen, agent.time_bins, lambda_cox)
         print(cindex, ibs, mae_uncensored, mae_hinge, mae_po)
         # config_path = os.path.join(output_file, 'config.yaml')
         # with open(config_path, 'w') as outfile:

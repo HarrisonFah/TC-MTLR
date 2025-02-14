@@ -1,7 +1,7 @@
 import jax
 import jax.numpy as jnp
 from base_cox import BaseSA, ConfigParams
-from utils import convert_to_jax_arrays, train_val_test_split, unroll
+from utils import convert_to_jax_arrays, train_val_test_split, unroll, LazyTimesDataGenerator
 #from utils import convert_to_jax_arrays, train_test_split, unroll
 from dataclasses import dataclass
 
@@ -32,6 +32,8 @@ class LambdaSA(BaseSA):
         self.num_steps = new_config.num_steps
 
     def get_train_val_test(self, val_size=.15, test_size=0.2):
+        data_manager = LazyTimesDataGenerator
+
         subkey = self._next_rng_key()
         X_train, X_val, X_test, y_train, y_val, y_test, hws_train, hws_val, hws_test, \
         m_train, m_val, m_test, ts_train, ts_val, ts_test, cs_train, cs_val, cs_test, \
@@ -46,6 +48,26 @@ class LambdaSA(BaseSA):
                                                                     seed=self.seed,
                                                                     val_size=val_size,
                                                                     test_size=test_size)
+
+        subkey = self._next_rng_key()
+        train_gen = data_manager(X=X_train, h_ws=hws_train,
+                                 ts=ts_train, cs=cs_train,
+                                 y=y_train, rs=rs_train,
+                                 seqs_ts=seqs_ts_train, mask=m_train,
+                                 batch_size=self.config.batch_size, rng=subkey)
+        self.set_time_bins(train_gen)
+        subkey = self._next_rng_key()
+        val_gen = data_manager(X=X_val, h_ws=hws_val,
+                                 ts=ts_val, cs=cs_val,
+                                 y=y_val, rs=rs_val,
+                                 seqs_ts=seqs_ts_val, mask=m_val,
+                                 batch_size=self.config.batch_size, rng=subkey)
+        subkey = self._next_rng_key()
+        test_gen = data_manager(X=X_test, h_ws=hws_test,
+                                ts=ts_test, cs=cs_test,
+                                y=y_test, rs=rs_test,
+                                seqs_ts=seqs_ts_test, mask=m_test,
+                                batch_size=self.config.batch_size, rng=subkey)
         
         X_train, X_val, X_test, ts_train, ts_val, ts_test, cs_train, cs_val, cs_test = convert_to_jax_arrays(X_train, X_val, X_test, ts_train, ts_val, ts_test, cs_train, cs_val, cs_test)
         
@@ -54,7 +76,7 @@ class LambdaSA(BaseSA):
             X_val, ts_val, cs_val = unroll(X_val, ts_val, cs_val)
             X_test, ts_test, cs_test = unroll(X_test, ts_test, cs_test)
 
-        return X_train, X_val, X_test, ts_train, ts_val, ts_test, cs_train, cs_val, cs_test
+        return X_train, ts_train, cs_train, train_gen, val_gen, test_gen
 
     def _targets(self, m, seqs, ts, cs):
         """Compute pseudo-targets and weights for the m-step backup."""
@@ -129,11 +151,10 @@ class LambdaSA(BaseSA):
 
         return epoch_loss
 
-    def train(self, X_train=None, ts_train=None, cs_train=None):
-
-        if X_train is None or ts_train is None or cs_train is None:
-            X_train, _, _, ts_train, _, _, cs_train, _, _ = self.get_train_val_test()
-
+    def train(self, X_train, ts_train, cs_train):
+        print('X_train.shape:', X_train.shape)
+        print('ts_train.shape:', ts_train.shape)
+        print('cs_train.shape:', cs_train.shape)
         # Outer loop
         losses = []
         for i in range(self.num_steps):

@@ -6,10 +6,11 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import os
-from utils import MTLRDataGenerator, get_data, train_val_test_split
+from utils import MTLRDataGenerator, get_data, train_val_test_split, median_time_bins, quantile_time_bins
 from SurvivalEVAL.Evaluator import SurvivalEvaluator
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+#device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = "cpu"
 
 # Implementation of TC-MTLR for sequences of states (no actions)
 # Uses partial code from https://github.com/vwxyzjn/cleanrl/blob/master/cleanrl/c51.py
@@ -20,6 +21,9 @@ class ConfigParams:
 	dataset_name: str
 	batch_size: int
 	learning_rate: float
+	layer_size: int
+	num_hidden: int
+	use_quantiles: bool
 	log_interval: int
 	weight_decay: float
 	num_epochs: int
@@ -95,25 +99,27 @@ class TC_MTLR(object):
 					 'h_ws': h_ws,
 					 'target': h_tgt,
 					 'mask': mask,
-                     'rs': rs,
-                     'seqs_ts': seqs_ts}
+					 'rs': rs,
+					 'seqs_ts': seqs_ts}
 
-		state_dim = seqs.shape[-1]
-
-		self.time_bins = torch.tensor(config_kwargs['time_bins']).to(device)
-		self.num_atoms = len(self.time_bins)
-		layer_size = config_kwargs['layer_size']
-		num_hidden = config_kwargs['num_hidden']
-		self.MTLR_network = MTLR_network(state_dim, self.num_atoms, layer_size, num_hidden).to(device)
-		self.MTLR_target = copy.deepcopy(self.MTLR_network)
-		self.MTLR_optimizer = torch.optim.Adam(self.MTLR_network.parameters(), lr=self.config.learning_rate)
+		self.state_dim = seqs.shape[-1]
+		self.layer_size = self.config.layer_size
+		self.num_hidden = self.config.num_hidden
+		self.use_quantiles = self.config.use_quantiles
 
 		self.discount = discount
 		self.tau = tau
 		self.policy_freq = policy_freq
-		self.batch_size = config_kwargs['batch_size']
+		self.batch_size = self.config.batch_size
 
 		self.total_it = 0
+
+	def init_networks(self, time_bins):
+		self.time_bins = torch.tensor(time_bins).to(device).float()
+		self.num_atoms = len(self.time_bins)
+		self.MTLR_network = MTLR_network(self.state_dim, self.num_atoms, self.layer_size, self.num_hidden).to(device)
+		self.MTLR_target = copy.deepcopy(self.MTLR_network)
+		self.MTLR_optimizer = torch.optim.Adam(self.MTLR_network.parameters(), lr=self.config.learning_rate)
 
 	def calculate_isd_numerator(self, x, mask):
 		lower_triangle = torch.tril(torch.full((x.shape[1], x.shape[1]), 1)).to(dtype=torch.float, device=device)
@@ -226,26 +232,46 @@ class TC_MTLR(object):
 																	val_size=val_size,
 																	test_size=test_size)
 
-		train_gen = data_manager(X=X_train, ts=ts_train, 
-								cs=cs_train, rs=rs_train,
-								seqs_ts=seqs_ts_train, batch_size=self.batch_size)
-
-		val_gen = data_manager(X=X_val, ts=ts_val, 
-								cs=cs_val, rs=rs_val,
-								seqs_ts=seqs_ts_val, batch_size=self.batch_size)
-
-		test_gen = data_manager(X=X_test, ts=ts_test, 
-								cs=cs_test, rs=rs_test,
-								seqs_ts=seqs_ts_test, batch_size=self.batch_size)
+		train_gen = data_manager(X=X_train,
+								 ts=ts_train, cs=cs_train,
+								 y=y_train, rs=rs_train,
+								 seqs_ts=seqs_ts_train, mask=m_train,
+								 batch_size=self.config.batch_size)
+		if self.use_quantiles:
+			time_bins = quantile_time_bins(train_gen, self.horizon)
+		else:
+			time_bins = median_time_bins(train_gen, self.horizon)
+		self.init_networks(time_bins)
+		
+		val_gen = data_manager(X=X_val,
+								 ts=ts_val, cs=cs_val,
+								 y=y_val, rs=rs_val,
+								 seqs_ts=seqs_ts_val, mask=m_val,
+								 batch_size=self.config.batch_size)
+		
+		test_gen = data_manager(X=X_test,
+								ts=ts_test, cs=cs_test,
+								y=y_test, rs=rs_test,
+								seqs_ts=seqs_ts_test, mask=m_test,
+								batch_size=self.config.batch_size)
 
 		return train_gen, val_gen, test_gen
 
-	def eval(self, train_gen, eval_gen, time_bins):
+	def eval(self, train_gen, eval_gen, time_bins, lambda_cox=False):
 		train_state, train_next_state, train_reward, train_not_done, train_times, train_censor  = train_gen.get_all_data()
 		eval_state, eval_next_state, eval_reward, eval_not_done, eval_times, eval_censor  = eval_gen.get_all_data()
 		eval_state = torch.tensor(eval_state).to(device)
 		isds = self.get_isd(eval_state).detach().cpu().numpy()
+		isds[:,-1] = np.zeros((isds.shape[0],))
+		print('isds:')
+		print(isds)
+		print('eval_times:')
+		print(eval_times)
+		print('time_bins:')
+		print(time_bins)
 		evaluator = SurvivalEvaluator(isds, self.time_bins, eval_times, ~eval_censor, train_times, train_censor)
+		print("predicted_times:")
+		print(evaluator.predict_time_from_curve(evaluator.predict_time_method))
 
 		cindex, concordant_pairs, total_pairs = evaluator.concordance(ties="None")
 		ibs = evaluator.integrated_brier_score(num_points=isds.shape[1], IPCW_weighted=True, draw_figure=False)
