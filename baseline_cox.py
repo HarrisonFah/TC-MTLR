@@ -4,7 +4,8 @@ import chex
 import optax
 
 from tqdm import tqdm
-from utils import LazyTimesDataGenerator, TgtMskDataGenerator, train_test_split
+from utils import LazyTimesDataGenerator, TgtMskDataGenerator, train_val_test_split
+#from utils import LazyTimesDataGenerator, TgtMskDataGenerator, train_test_split
 from base_cox import BaseSA
 
 Params = chex.ArrayTree
@@ -48,31 +49,41 @@ class ModelState:
 
 class SA(BaseSA):
 
-    def get_train_val_test(self, data_arrays):
+    def get_train_val_test(self, val_size=.15, test_size=.2):
         if self.config.calculate_tgt_and_mask:
-            data_manager = TimesDataGenerator
+            data_manager = TgtMskDataGenerator
         else:
             data_manager = LazyTimesDataGenerator
 
+        subkey = self._next_rng_key()
         X_train, X_val, X_test, y_train, y_val, y_test, hws_train, hws_val, hws_test, \
         m_train, m_val, m_test, ts_train, ts_val, ts_test, cs_train, cs_val, cs_test, \
-        rs_train, rs_val, rs_test, seqs_ts_train, seqs_ts_val, seqs_ts_test = data_arrays
-
-        train_gen = data_manager(X=X_train, h_ws=hws_train,
+        rs_train, rs_val, rs_test, seqs_ts_train, seqs_ts_val, seqs_ts_test = train_val_test_split(self.data['seqs'],
+                                                                    self.data['target'],
+                                                                    self.data['h_ws'],
+                                                                    self.data['mask'],
+                                                                    self.data['ts'],
+                                                                    self.data['cs'],
+                                                                    self.data['rs'],
+                                                                    self.data['seqs_ts'],
+                                                                    seed=self.seed,
+                                                                    val_size=val_size,
+                                                                    test_size=test_size)
+        subkey = self._next_rng_key()
+        train_gen = data_manager(X=X_train,
                                  ts=ts_train, cs=cs_train,
                                  y=y_train, mask=m_train,
-                                 batch_size=self.config.batch_size)
-
-        val_gen = data_manager(X=X_val, h_ws=hws_val,
+                                 batch_size=self.config.batch_size, rng=subkey)
+        subkey = self._next_rng_key()
+        val_gen = data_manager(X=X_val,
                                  ts=ts_val, cs=cs_val,
                                  y=y_val, mask=m_val,
-                                 batch_size=self.config.batch_size)
-
-        test_gen = data_manager(X=X_test, h_ws=hws_test,
+                                 batch_size=self.config.batch_size, rng=subkey)
+        subkey = self._next_rng_key()
+        test_gen = data_manager(X=X_test,
                                 ts=ts_test, cs=cs_test,
                                 y=y_test, mask=m_test,
-                                batch_size=self.config.batch_size
-                                )
+                                batch_size=self.config.batch_size, rng=subkey)
         return train_gen, val_gen, test_gen
 
     def train(self, train_gen=None, test_gen=None):
@@ -81,7 +92,7 @@ class SA(BaseSA):
         test_loss = []
 
         if train_gen is None:
-            train_gen, _ = self.get_train_test()
+            train_gen, _ = self.get_train_val_test()
 
         iter_range = range(self.config.num_epochs)
         if self.config.verbose:

@@ -5,12 +5,12 @@ arch:
     num_layers: 1
     output_dim: 8
     seed: 42
-    seq_len: 53
+    seq_len: 100
   type: linear
 axis: 2
 batch_size: 128
 dataset_kwargs:
-  data_path: data/pbc-seqs.pkl
+  data_path: data/PBC.pkl
   horizon: 16
 dataset_name: pbc2
 lambda_: 0.0
@@ -23,4 +23,4 @@ output_file: Results/DeepLambdaSA/pbc2\linear\lambda_0.0\landmark_True\exp_1
 preprocessed_data: false
 target_lr: 0.5
 verbose: false
-weight_decay: 0.0001
+weight_decay: 0.0

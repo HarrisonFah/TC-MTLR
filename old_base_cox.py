@@ -88,7 +88,7 @@ class BaseSA:
 			seqs, ts, cs, h_tgt, h_ws, mask = load_preprocessed_dataset(
 				data_path)
 		else:
-			seqs, ts, cs, h_tgt, h_ws, mask, rs, seqs_ts = get_data(self.config.dataset_name,
+			seqs, ts, cs, h_tgt, h_ws, mask = get_data(self.config.dataset_name,
 													   self.config.landmark,
 													   self.config.calculate_tgt_and_mask,
 													   self.config.dataset_kwargs)
@@ -99,9 +99,7 @@ class BaseSA:
 					 'cs': cs,
 					 'h_ws': h_ws,
 					 'target': h_tgt,
-					 'mask': mask,
-                     'rs': rs,
-                     'seqs_ts': seqs_ts}
+					 'mask': mask}
 
 		# Define architecture
 		arch_type = self.config.arch['type']
@@ -346,7 +344,7 @@ class BaseSA:
 				path = os.path.join(path, f'taskid_{task_id}')
 
 			ext = f'seed_{self.seed}'
-			path = os.path.join(path, ext)
+			path = os.path.join(path, ext)            
 			if not os.path.exists(path):
 				os.makedirs(path)
 		else:

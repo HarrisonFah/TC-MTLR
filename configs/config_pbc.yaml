@@ -3,7 +3,7 @@ axis: 2  # For lambda baseline this has to be 1.
 batch_size: 128
 learning_rate: .1
 log_interval: 1000
-weight_decay: 1.e-4
+weight_decay: 0.0
 num_epochs: 100
 output_file: Results/{}/
 landmark: True
@@ -12,7 +12,7 @@ arch:
   type: linear
   arch_kwargs:
     hidden_size: 16
-    seq_len: 53  # Has to be the same as the horizon
+    seq_len: 100  # Has to be the same as the horizon
     output_dim: 8
     num_layers: 1
     dropout: 0.05

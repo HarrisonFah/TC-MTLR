@@ -1,7 +1,8 @@
 import jax
 import jax.numpy as jnp
 from base_cox import BaseSA, ConfigParams
-from utils import convert_to_jax_arrays, train_test_split, unroll
+from utils import convert_to_jax_arrays, train_val_test_split, unroll
+#from utils import convert_to_jax_arrays, train_test_split, unroll
 from dataclasses import dataclass
 
 
@@ -23,17 +24,28 @@ def bce_logits(targets, logits):
 
 class LambdaSA(BaseSA):
 
-    def __init__(self, config_kwargs, seed=42, name="TCSR", **kwargs):
+    def __init__(self, config_kwargs, seed, name="TCSR", **kwargs):
         super().__init__(config_kwargs, seed, name, **kwargs)
 
         new_config = Config.from_dict(config_kwargs)
         self.lambda_ = new_config.lambda_
         self.num_steps = new_config.num_steps
 
-    def get_train_val_test(self, data_arrays):
+    def get_train_val_test(self, val_size=.15, test_size=0.2):
+        subkey = self._next_rng_key()
         X_train, X_val, X_test, y_train, y_val, y_test, hws_train, hws_val, hws_test, \
         m_train, m_val, m_test, ts_train, ts_val, ts_test, cs_train, cs_val, cs_test, \
-        rs_train, rs_val, rs_test, seqs_ts_train, seqs_ts_val, seqs_ts_test = data_arrays
+        rs_train, rs_val, rs_test, seqs_ts_train, seqs_ts_val, seqs_ts_test = train_val_test_split(self.data['seqs'],
+                                                                    self.data['target'],
+                                                                    self.data['h_ws'],
+                                                                    self.data['mask'],
+                                                                    self.data['ts'],
+                                                                    self.data['cs'],
+                                                                    self.data['rs'],
+                                                                    self.data['seqs_ts'],
+                                                                    seed=self.seed,
+                                                                    val_size=val_size,
+                                                                    test_size=test_size)
         
         X_train, X_val, X_test, ts_train, ts_val, ts_test, cs_train, cs_val, cs_test = convert_to_jax_arrays(X_train, X_val, X_test, ts_train, ts_val, ts_test, cs_train, cs_val, cs_test)
         
@@ -42,7 +54,7 @@ class LambdaSA(BaseSA):
             X_val, ts_val, cs_val = unroll(X_val, ts_val, cs_val)
             X_test, ts_test, cs_test = unroll(X_test, ts_test, cs_test)
 
-        return X_train, X_test, ts_train, ts_test, cs_train, cs_test
+        return X_train, X_val, X_test, ts_train, ts_val, ts_test, cs_train, cs_val, cs_test
 
     def _targets(self, m, seqs, ts, cs):
         """Compute pseudo-targets and weights for the m-step backup."""
@@ -120,7 +132,7 @@ class LambdaSA(BaseSA):
     def train(self, X_train=None, ts_train=None, cs_train=None):
 
         if X_train is None or ts_train is None or cs_train is None:
-            X_train, _, ts_train, _, cs_train, _ = self.get_train_test()
+            X_train, _, _, ts_train, _, _, cs_train, _, _ = self.get_train_val_test()
 
         # Outer loop
         losses = []

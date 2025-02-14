@@ -1,7 +1,5 @@
 from functools import partial
 from math import ceil
-from dataclasses import dataclass
-import inspect
 import os
 import h5py
 from pickle import load
@@ -12,35 +10,6 @@ from lifelines.utils import concordance_index as _concordance_index
 import pandas as pd
 from sklearn.discriminant_analysis import StandardScaler
 
-@dataclass
-class ConfigParams:
-	"""A structure for configuration"""
-	dataset_name: str
-	batch_size: int
-	learning_rate: float
-	log_interval: int
-	weight_decay: float
-	num_epochs: int
-	dataset_kwargs: dict
-	axis: int
-	arch: dict
-	preprocessed_data: bool
-	verbose: bool
-	calculate_tgt_and_mask: bool = True
-	landmark: bool = False
-	output_file: str = None
-	ckpt_path: str = None
-	# horizon: int
-
-	@classmethod
-	def from_dict(cls, env):
-		"""To ignore args that are not in the class,
-		see XXXX
-		"""
-		return cls(**{
-			k: v for k, v in env.items()
-			if k in inspect.signature(cls).parameters
-		})
 
 def pad_to(x1, shape):
 
@@ -132,15 +101,15 @@ def get_data(dataset_name, landmark, calculate_tgt_and_mask, kwargs):
                'churn_kkbox': get_churn_kkbox}
 
     try:
-        seqs, ts, cs, rs, seqs_ts = loaders[dataset_name](**kwargs)
+        seqs, ts, cs = loaders[dataset_name](**kwargs)
         if calculate_tgt_and_mask:
             target, h_ws, mask = get_targets_and_masks(seqs, ts, cs, landmark)
         else:
             target, h_ws, mask = None, None, None
     except KeyError:
-        raise Exception('dataset not found.')
+        raise Exception('type of dataset not found.')
 
-    return seqs, ts, cs, target, h_ws, mask, rs, seqs_ts
+    return seqs, ts, cs, target, h_ws, mask
 
 
 def get_churn_kkbox(data_path, horizon=None, split=True, pad=False, use_static_fs=False):
@@ -271,9 +240,7 @@ def load_preprocessed_dataset(data_path):
     h_ws = np.array(data['h_ws']).astype(bool)
     mask = np.array(data['mask']).astype(bool)
     h_tgt = np.array(data['h_tgt'])
-    rs = np.array(data['rs'])
-    np.array(data['seqs_ts'])
-    return seqs, ts, cs, h_tgt, h_ws, mask, rs, seqs_ts
+    return seqs, ts, cs, h_tgt, h_ws, mask
 
 
 def split_and_pad_last(arr, H=1000):
@@ -389,13 +356,13 @@ def get_targets_and_masks(seqs, ts, cs, landmark):
 
 def get_data_baseline(data_path, horizon=None):
     data = load(open(data_path, 'rb'))
+    print(data)
+    print(type(data))
     seqs = np.array(data['seqs'])
     cs = np.array(data['cs'])
     ts = np.array(data['ts'])
-    rs = np.array(data['rs'])
-    seqs_ts = np.array(data['seqs_ts'])
 
-    return seqs, ts, cs, rs, seqs_ts
+    return seqs, ts, cs
 
 
 def get_placeholder(dim, horizon, data_path=None):
@@ -405,7 +372,7 @@ def get_placeholder(dim, horizon, data_path=None):
     return seqs, ts, cs
 
 
-def train_val_test_split(X, target, h_ws, mask, ts, cs, rs, seqs_ts, seed, val_size=0.15, test_size=0.2):
+def train_test_split(X, target, h_ws, mask, ts, cs, seed, test_size=0.2):
     # Shuffle the indices of the data
     num_samples = X.shape[0]
     shuffled_indices = np.arange(num_samples)
@@ -413,50 +380,35 @@ def train_val_test_split(X, target, h_ws, mask, ts, cs, rs, seqs_ts, seed, val_s
     np.random.shuffle(shuffled_indices)
 
     # Calculate the number of samples in the test set
-    val_idx = int(num_samples - (num_samples * (val_size + test_size)))
-    test_idx = int(num_samples - (num_samples * test_size))
+    num_test_samples = int(num_samples * test_size)
 
-    #Split the shuffled indices into train and test sets
-    train_indices = shuffled_indices[:val_idx]
-    val_indices = shuffled_indices[val_idx:test_idx]
-    test_indices = shuffled_indices[test_idx:]
+    # Split the shuffled indices into train and test sets
+    test_indices = shuffled_indices[:num_test_samples]
+    train_indices = shuffled_indices[num_test_samples:]
 
     # Use the indices to split the data
     X_train = X[train_indices]
-    X_val = X[val_indices]
     X_test = X[test_indices]
     ts_train = ts[train_indices]
-    ts_val = ts[val_indices]
     ts_test = ts[test_indices]
     cs_train = cs[train_indices]
-    cs_val = cs[val_indices]
     cs_test = cs[test_indices]
-    rs_train = rs[train_indices]
-    rs_val = rs[val_indices]
-    rs_test = rs[test_indices]
-    seqs_ts_train = seqs_ts[train_indices]
-    seqs_ts_val = seqs_ts[val_indices]
-    seqs_ts_test = seqs_ts[test_indices]
 
     if target is not None and h_ws is not None and mask is not None:
         y_train = target[train_indices]
-        y_val = target[val_indices]
         y_test = target[test_indices]
         hws_train = h_ws[train_indices]
-        hws_val = h_ws[val_indices]
         hws_test = h_ws[test_indices]
         m_train = mask[train_indices]
-        m_val = mask[val_indices]
         m_test = mask[test_indices]
 
     else:
-        y_train, y_val, y_test = None, None, None
-        hws_train, hws_val, hws_test = None, None, None
-        m_train, m_val, m_test = None, None, None
+        y_train, y_test = None, None
+        hws_train, hws_test = None, None
+        m_train, m_test = None, None
 
-    return X_train, X_val, X_test, y_train, y_val, y_test, hws_train, hws_val, hws_test, \
-        m_train, m_val, m_test, ts_train, ts_val, ts_test, cs_train, cs_val, cs_test, \
-        rs_train, rs_val, rs_test, seqs_ts_train, seqs_ts_val, seqs_ts_test
+    return X_train, X_test, y_train, y_test, hws_train, hws_test, \
+        m_train, m_test, ts_train, ts_test, cs_train, cs_test
 
 
 class BaseDataGenerator:
@@ -569,144 +521,6 @@ class LazyTimesDataGenerator(BaseDataGenerator):
             batch_cs = cs[idx]
             yield batch_X, batch_ts, batch_cs
 
-class MTLRDataGenerator:
-
-    def __init__(self, X, ts, cs, rs, seqs_ts, batch_size, shuffle=True):
-        self.X = X
-        self.ts = ts
-        self.cs = cs
-        self.rs = rs
-        self.seqs_ts = seqs_ts
-        self.shuffle = shuffle
-        self.batch_size = batch_size
-        self.generator = self.batch_generator()
-
-    def batch_generator(self):
-        X = self.X
-        ts = self.ts
-        cs = self.cs
-        rs = self.rs
-        seqs_ts = self.seqs_ts
-        batch_size = self.batch_size
-        num_samples = X.shape[0]
-
-        permutation = np.arange(num_samples)
-        # Shuffle the data using the same random key for X and y if shuffle is True
-        if self.shuffle:
-            np.random.shuffle(permutation)
-
-        terminal = np.full((1,X[0].shape[1]), -1) #filler used for terminal state (ignored due to not_done)
-
-        for i in range(0, num_samples, batch_size):
-            state = None
-            next_state = None
-            reward = None
-            not_done = None
-            censors = None
-            times = None
-            for idx in permutation[i:i + batch_size]:
-                censored = cs[idx]
-                end_idx = ts[idx] - censored
-                if state is None:
-                    if censored:
-                        state = X[idx,:end_idx-1]
-                        reward = rs[idx, :end_idx-1]
-                        not_done = np.ones((end_idx-1, 1))
-                        censors = np.full((end_idx-1, 1), censored)
-                        times = seqs_ts[idx,:end_idx-1]
-                    else:
-                        state = X[idx,:end_idx]
-                        reward = rs[idx, :end_idx]
-                        not_done = np.ones((end_idx, 1))
-                        censors = np.full((end_idx, 1), censored)
-                        times = seqs_ts[idx,:end_idx]
-                    next_state = X[idx, 1:end_idx]
-                else:
-                    if censored:
-                        state = np.concatenate((state, X[idx,:end_idx-1]))
-                        reward = np.concatenate((reward, rs[idx, :end_idx-1]), axis=None)
-                        not_done = np.concatenate((not_done, np.ones((end_idx-1, 1))), axis=None)
-                        censors = np.concatenate((censors, np.full((end_idx-1, 1), censored)), axis=None)
-                        times = np.concatenate((times, seqs_ts[idx,:end_idx-1]), axis=None)
-                    else:
-                        state = np.concatenate((state, X[idx,:end_idx]))
-                        reward = np.concatenate((reward, rs[idx, :end_idx]), axis=None)
-                        not_done = np.concatenate((not_done, np.ones((end_idx, 1))), axis=None)
-                        censors = np.concatenate((censors, np.full((end_idx, 1), censored)), axis=None)
-                        times = np.concatenate((times, seqs_ts[idx,:end_idx]), axis=None)
-                    next_state = np.concatenate((next_state, X[idx, 1:end_idx]))
-                if not censored:
-                    next_state = np.concatenate((next_state, terminal))
-                    not_done[-1] = 0
-            yield state, next_state, reward, not_done, censors, times
-
-    def get_all_data(self):
-        X = self.X
-        ts = self.ts
-        cs = self.cs
-        rs = self.rs
-        seqs_ts = self.seqs_ts
-        num_samples = X.shape[0]
-
-        terminal = np.full((1,X[0].shape[1]), -1) #filler used for terminal state (ignored due to not_done)
-
-        state = None
-        next_state = None
-        reward = None
-        not_done = None
-        censors = None
-        times = None
-        for idx in range(num_samples):
-            censored = cs[idx]
-            end_idx = ts[idx] - censored
-            if state is None:
-                if censored:
-                    state = X[idx,:end_idx-1]
-                    reward = rs[idx, :end_idx-1]
-                    not_done = np.ones((end_idx-1, 1))
-                    censors = np.full((end_idx-1, 1), censored)
-                    times = seqs_ts[idx,:end_idx-1]
-                else:
-                    state = X[idx,:end_idx]
-                    reward = rs[idx, :end_idx]
-                    not_done = np.ones((end_idx, 1))
-                    censors = np.full((end_idx, 1), censored)
-                    times = seqs_ts[idx,:end_idx]
-                next_state = X[idx, 1:end_idx]
-            else:
-                if censored:
-                    state = np.concatenate((state, X[idx,:end_idx-1]))
-                    reward = np.concatenate((reward, rs[idx, :end_idx-1]), axis=None)
-                    not_done = np.concatenate((not_done, np.ones((end_idx-1, 1))), axis=None)
-                    censors = np.concatenate((censors, np.full((end_idx-1, 1), censored)), axis=None)
-                    times = np.concatenate((times, seqs_ts[idx,:end_idx-1]), axis=None)
-                else:
-                    state = np.concatenate((state, X[idx,:end_idx]))
-                    reward = np.concatenate((reward, rs[idx, :end_idx]), axis=None)
-                    not_done = np.concatenate((not_done, np.ones((end_idx, 1))), axis=None)
-                    censors = np.concatenate((censors, np.full((end_idx, 1), censored)), axis=None)
-                    times = np.concatenate((times, seqs_ts[idx,:end_idx]), axis=None)
-                next_state = np.concatenate((next_state, X[idx, 1:end_idx]))
-            if not censored:
-                next_state = np.concatenate((next_state, terminal))
-                not_done[-1] = 0
-
-        return state, next_state, reward, not_done, times, censors
-
-    def __iter__(self):
-        return self
-
-    def __len__(self):
-        return ceil(len(self.X)/self.batch_size)
-
-    def reset(self):
-        self.generator = self.batch_generator()
-
-    def __next__(self):
-        # try:
-        batch = next(self.generator)
-        return batch
-
 
 def kaplan_meier(ts, cs):
     """Kaplan-Meier estimator of survival curve."""
@@ -794,54 +608,3 @@ def unroll_time(xs, ts, cs, ms, T):
 def convert_to_jax_arrays(*numpy_arrays):
     jax_arrays = (jnp.asarray(arr) for arr in numpy_arrays)
     return jax_arrays
-
-def median_time_bins(config_kwargs, seed, val_size=.15, test_size=.20):
-    config = ConfigParams.from_dict(config_kwargs)
-    H = config.dataset_kwargs['horizon']
-    horizon = H
-    calculate_tgt_and_mask_at_epoch = not config.calculate_tgt_and_mask
-
-    seqs, ts, cs, h_tgt, h_ws, mask, rs, seqs_ts = get_data(config.dataset_name,
-													   config.landmark,
-													   config.calculate_tgt_and_mask,
-													   config.dataset_kwargs)
-    seqs = seqs.astype(np.float32)
-
-    data = {'seqs': seqs,
-            'ts': ts,
-            'cs': cs,
-            'h_ws': h_ws,
-            'target': h_tgt,
-            'mask': mask,
-            'rs': rs,
-            'seqs_ts': seqs_ts}
-
-    X_train, X_val, X_test, y_train, y_val, y_test, hws_train, hws_val, hws_test, \
-    m_train, m_val, m_test, ts_train, ts_val, ts_test, cs_train, cs_val, cs_test, \
-    rs_train, rs_val, rs_test, seqs_ts_train, seqs_ts_val, seqs_ts_test = train_val_test_split(data['seqs'],
-                                                                data['target'],
-                                                                data['h_ws'],
-                                                                data['mask'],
-                                                                data['ts'],
-                                                                data['cs'],
-                                                                data['rs'],
-                                                                data['seqs_ts'],
-                                                                seed=seed,
-                                                                val_size=val_size,
-                                                                test_size=test_size)
-
-    rewards = None
-    for idx in range(0, rs_train.shape[0]):
-        censored = cs_train[idx]
-        end_idx = ts_train[idx] - int(censored)
-        if rewards is None:
-            rewards = rs_train[idx, 1:end_idx]
-        else:
-            rewards = np.concatenate((rewards, rs_train[idx, 1:end_idx]), axis=None)
-    
-    reward_median = np.median(rewards).item()
-    time_bins = []
-    for idx in range(horizon):
-        time_bins.append(reward_median*idx)
-
-    return time_bins

@@ -1,7 +1,7 @@
 # TC-MTLR
 Code for reproducing results from the paper "Temporally-Consistent Multi-Task Logistic Regression"
 
-## Run code (temp): python main.py --agent DeepLambdaSA --config configs/config_pbc.yaml
+## Run code (temp): python main.py --config configs/config_pbc.yaml
 
 ## Installing Packages
 

@@ -63,15 +63,16 @@ def main():
         current_day = int(row['day'])
         #if reached a new case, save the previous sequence
         if index > 0 and current_id != prev_id:
-            seqs.append(seq)
-            cs.append(c)
-            ts.append(len(seq))
-            r.append(seq_t[0] - prev_day)
-            all_end_ts.append(seq_t[0] - prev_day)
-            rs.append(r)
-            seqs_ts.append(seq_t)
-            if len(seq) > horizon:
-                horizon = len(seq)
+            if len(seq) > 1:
+                seqs.append(seq)
+                cs.append(c)
+                ts.append(len(seq))
+                r.append(seq_t[0] - prev_day)
+                all_end_ts.append(seq_t[0] - prev_day)
+                rs.append(r)
+                seqs_ts.append(seq_t)
+                if len(seq) > horizon:
+                    horizon = len(seq)
 
             seq = []
             c = -1

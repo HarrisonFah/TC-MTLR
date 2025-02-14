@@ -1,16 +1,48 @@
 import copy
 import numpy as np
+from dataclasses import dataclass
+import inspect
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import os
-from utils import train_test_split, MTLRDataGenerator
+from utils import MTLRDataGenerator, get_data, train_val_test_split
 from SurvivalEVAL.Evaluator import SurvivalEvaluator
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Implementation of TC-MTLR for sequences of states (no actions)
 # Uses partial code from https://github.com/vwxyzjn/cleanrl/blob/master/cleanrl/c51.py
+
+@dataclass
+class ConfigParams:
+	"""A structure for configuration"""
+	dataset_name: str
+	batch_size: int
+	learning_rate: float
+	log_interval: int
+	weight_decay: float
+	num_epochs: int
+	dataset_kwargs: dict
+	axis: int
+	arch: dict
+	preprocessed_data: bool
+	verbose: bool
+	calculate_tgt_and_mask: bool = True
+	landmark: bool = False
+	output_file: str = None
+	ckpt_path: str = None
+	# horizon: int
+
+	@classmethod
+	def from_dict(cls, env):
+		"""To ignore args that are not in the class,
+		see XXXX
+		"""
+		return cls(**{
+			k: v for k, v in env.items()
+			if k in inspect.signature(cls).parameters
+		})
 
 class MTLR_network(nn.Module):
 	def __init__(self, state_dim, num_outputs, layer_size=128, num_hidden=1):
@@ -40,18 +72,41 @@ class TC_MTLR(object):
 	def __init__(
 		self,
 		config_kwargs,
+		seed,
 		discount=1.0,
 		tau=1.0,
 		policy_freq=10,
 	):
-		self.state_dim = config_kwargs['input_dim']
+		self.config = ConfigParams.from_dict(config_kwargs)
+		self.seed = seed
+		H = self.config.dataset_kwargs['horizon']
+		self.horizon = H
+		self.calculate_tgt_and_mask_at_epoch = not self.config.calculate_tgt_and_mask
+
+		seqs, ts, cs, h_tgt, h_ws, mask, rs, seqs_ts = get_data(self.config.dataset_name,
+														self.config.landmark,
+														self.config.calculate_tgt_and_mask,
+														self.config.dataset_kwargs)
+		seqs = seqs.astype(np.float32)
+
+		self.data = {'seqs': seqs,
+					 'ts': ts,
+					 'cs': cs,
+					 'h_ws': h_ws,
+					 'target': h_tgt,
+					 'mask': mask,
+                     'rs': rs,
+                     'seqs_ts': seqs_ts}
+
+		state_dim = seqs.shape[-1]
+
 		self.time_bins = torch.tensor(config_kwargs['time_bins']).to(device)
 		self.num_atoms = len(self.time_bins)
 		layer_size = config_kwargs['layer_size']
 		num_hidden = config_kwargs['num_hidden']
-		self.MTLR_network = MTLR_network(self.state_dim, self.num_atoms, layer_size, num_hidden).to(device)
+		self.MTLR_network = MTLR_network(state_dim, self.num_atoms, layer_size, num_hidden).to(device)
 		self.MTLR_target = copy.deepcopy(self.MTLR_network)
-		self.MTLR_optimizer = torch.optim.Adam(self.MTLR_network.parameters(), lr=lr)
+		self.MTLR_optimizer = torch.optim.Adam(self.MTLR_network.parameters(), lr=self.config.learning_rate)
 
 		self.discount = discount
 		self.tau = tau
@@ -120,29 +175,28 @@ class TC_MTLR(object):
 
 		return return_loss
 
-	def train(self, train_gen, num_epochs=100):
-        losses = []
-        for epoch in num_epochs:
-            for batch in train_gen:
+	def train(self, train_gen):
+		losses = []
+		for epoch in range(self.config.num_epochs):
+			for batch in train_gen:
 				state, next_state, reward, not_done, _, _ = batch
-				state = torch.tensor(state).to(device)
-				next_state = torch.tensor(next_state).to(device)
-				reward = torch.tensor(reward).to(device)
-				not_done = torch.tensor(not_done).to(device)
-                
+				state = torch.FloatTensor(state).to(device)
+				next_state = torch.FloatTensor(next_state).to(device)
+				reward = torch.FloatTensor(reward).to(device).reshape((-1,1))
+				not_done = torch.FloatTensor(not_done).to(device).reshape((-1,1))
+
 				loss = self.train_step(state, next_state, reward, not_done)
 
-                # log
-                if epoch % self.config.log_interval == 0 and epoch > 1:
-                    print(f"Epoch: {epoch+1}/{self.config.num_epochs}")
-                    print(
-                        f"Train classification loss: {loss.item():.3f} at epoch {epoch}")
-                    print()
+				# log
+				if epoch % self.config.log_interval == 0 and epoch > 1:
+					print(f"Epoch: {epoch+1}/{self.config.num_epochs}")
+					print(f"Train classification loss: {loss.item():.3f} at epoch {epoch}")
+					print()
 
-                losses.append(loss.item())
-            train_gen.reset()
+				losses.append(loss)
+			train_gen.reset()
 
-        return losses
+		return losses
 
 	def get_isd(self, state):
 		isd = torch.zeros((state.shape[0], self.num_atoms)).to(device=device)
@@ -155,30 +209,40 @@ class TC_MTLR(object):
 			mask[:,i] = torch.zeros((state.shape[0],)).to(device=device)
 		return isd
 
-	def get_train_val_test(self, data_arrays):
-        data_manager = MTLRDataGenerator
+	def get_train_val_test(self, val_size=.15, test_size=.2):
+		data_manager = MTLRDataGenerator
 
-        X_train, X_val, X_test, y_train, y_val, y_test, hws_train, hws_val, hws_test, \
-        m_train, m_val, m_test, ts_train, ts_val, ts_test, cs_train, cs_val, cs_test, \
-        rs_train, rs_val, rs_test, seqs_ts_train, seqs_ts_val, seqs_ts_test = data_arrays
-        
+		X_train, X_val, X_test, y_train, y_val, y_test, hws_train, hws_val, hws_test, \
+		m_train, m_val, m_test, ts_train, ts_val, ts_test, cs_train, cs_val, cs_test, \
+		rs_train, rs_val, rs_test, seqs_ts_train, seqs_ts_val, seqs_ts_test = train_val_test_split(self.data['seqs'],
+																	self.data['target'],
+																	self.data['h_ws'],
+																	self.data['mask'],
+																	self.data['ts'],
+																	self.data['cs'],
+																	self.data['rs'],
+																	self.data['seqs_ts'],
+																	seed=self.seed,
+																	val_size=val_size,
+																	test_size=test_size)
+
 		train_gen = data_manager(X=X_train, ts=ts_train, 
 								cs=cs_train, rs=rs_train,
-                                 batch_size=self.batch_size)
+								seqs_ts=seqs_ts_train, batch_size=self.batch_size)
 
-        val_gen = data_manager(X=X_val, ts=ts_val, 
+		val_gen = data_manager(X=X_val, ts=ts_val, 
 								cs=cs_val, rs=rs_val,
-                                 batch_size=self.batch_size)
+								seqs_ts=seqs_ts_val, batch_size=self.batch_size)
 
-        test_gen = data_manager(X=X_test, ts=ts_test, 
+		test_gen = data_manager(X=X_test, ts=ts_test, 
 								cs=cs_test, rs=rs_test,
-                                 batch_size=self.batch_size)
+								seqs_ts=seqs_ts_test, batch_size=self.batch_size)
 
-        return train_gen, val_gen, test_gen
+		return train_gen, val_gen, test_gen
 
-	def evaluate(self, train_gen, eval_gen, time_bins):
-		train_state, train_next_state, train_reward, train_not_done, train_censors, train_times = train_gen.get_all_data()
-		eval_state, eval_next_state, eval_reward, eval_not_done, eval_censor, eval_times = eval_gen.get_all_data()
+	def eval(self, train_gen, eval_gen, time_bins):
+		train_state, train_next_state, train_reward, train_not_done, train_times, train_censor  = train_gen.get_all_data()
+		eval_state, eval_next_state, eval_reward, eval_not_done, eval_times, eval_censor  = eval_gen.get_all_data()
 		eval_state = torch.tensor(eval_state).to(device)
 		isds = self.get_isd(eval_state).detach().cpu().numpy()
 		evaluator = SurvivalEvaluator(isds, self.time_bins, eval_times, ~eval_censor, train_times, train_censor)
