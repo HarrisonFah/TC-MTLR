@@ -10,6 +10,7 @@ from lambda_cox import LambdaSA
 from baseline_cox import SA
 from deep_lambda_cox import DeepLambdaSA
 from tc_mtlr import TC_MTLR
+from mtlr import MTLR
 from utils import median_time_bins, quantile_time_bins
 
 
@@ -72,6 +73,10 @@ if __name__ == '__main__':
         config['layer_size'] = 16
         config['num_hidden'] = 1
         agent = TC_MTLR(config, seed)
+    elif type_agent == 'MTLR':
+        config['layer_size'] = 16
+        config['num_hidden'] = 1
+        agent = MTLR(config, seed)
     else:
         raise Exception('Agent type not found')
 

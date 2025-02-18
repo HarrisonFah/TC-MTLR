@@ -9,8 +9,7 @@ import os
 from utils import MTLRDataGenerator, get_data, train_val_test_split, median_time_bins, quantile_time_bins
 from SurvivalEVAL.Evaluator import SurvivalEvaluator
 
-#device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-device = "cpu"
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Implementation of TC-MTLR for sequences of states (no actions)
 # Uses partial code from https://github.com/vwxyzjn/cleanrl/blob/master/cleanrl/c51.py
@@ -119,7 +118,7 @@ class TC_MTLR(object):
 		self.num_atoms = len(self.time_bins)
 		self.MTLR_network = MTLR_network(self.state_dim, self.num_atoms, self.layer_size, self.num_hidden).to(device)
 		self.MTLR_target = copy.deepcopy(self.MTLR_network)
-		self.MTLR_optimizer = torch.optim.Adam(self.MTLR_network.parameters(), lr=self.config.learning_rate)
+		self.MTLR_optimizer = torch.optim.Adam(self.MTLR_network.parameters(), lr=self.config.learning_rate, weight_decay=self.config.weight_decay)
 
 	def calculate_isd_numerator(self, x, mask):
 		lower_triangle = torch.tril(torch.full((x.shape[1], x.shape[1]), 1)).to(dtype=torch.float, device=device)
