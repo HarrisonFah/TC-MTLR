@@ -365,30 +365,6 @@ class BaseSA:
 
 		return path
 
-	# def eval(self, test_gen):
-	# 	seqs = test_gen.X
-	# 	ts = test_gen.ts
-	# 	cs = test_gen.cs
-
-	# 	print('seqs.shape:', seqs.shape)
-	# 	surv = self.survival_curve(seqs)
-	# 	print('surv.shape:', surv.shape)
-	# 	print(surv)
-	# 	bs = self.integrated_brier_score(surv[:, 0], ts, cs)
-	# 	scores = self.scores(seqs, q=0.0)
-	# 	ci = concordance_index(scores, ts, cs)
-
-	# 	output_path = self.output_path
-	# 	if output_path is not None:
-	# 		ci = ci.item()
-	# 		bs = bs.item()
-	# 		path_result = os.path.join(output_path, 'results.json')
-	# 		data = {'ci': ci, 'bs': bs}
-	# 		with open(path_result, 'w') as json_file:
-	# 			json.dump(data, json_file)
-
-	# 	return bs, ci
-
 	def eval(self, train_gen, eval_gen, time_bins, lambda_cox=False):
 		train_state, train_next_state, train_reward, train_not_done, train_times, train_censor = train_gen.get_all_data()
 		eval_state, eval_next_state, eval_reward, eval_not_done, eval_times, eval_censor = eval_gen.get_all_data()
@@ -399,15 +375,7 @@ class BaseSA:
 			isds = isds[:, 0] #only take the first state in each sequence
 		isds = np.copy(isds)
 		isds[:,-1] = np.zeros((isds.shape[0],)) # set S(K) = 0 so median times aren't more than the largest observed sample
-		print('isds:')
-		print(isds)
-		print('eval_times:')
-		print(eval_times)
-		print('time_bins:')
-		print(time_bins)
 		evaluator = SurvivalEvaluator(isds, time_bins, eval_times, ~eval_censor, train_times, train_censor)
-		print("predicted_times:")
-		print(evaluator.predict_time_from_curve(evaluator.predict_time_method))
 
 		cindex, concordant_pairs, total_pairs = evaluator.concordance(ties="None")
 		ibs = evaluator.integrated_brier_score(num_points=isds.shape[1], IPCW_weighted=True, draw_figure=False)

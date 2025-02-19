@@ -11,6 +11,7 @@ from baseline_cox import SA
 from deep_lambda_cox import DeepLambdaSA
 from tc_mtlr import TC_MTLR
 from mtlr import MTLR
+from logistichazard import LogisticHazardSA
 from utils import median_time_bins, quantile_time_bins
 
 
@@ -63,7 +64,10 @@ if __name__ == '__main__':
 
     lambda_cox=False
     if type_agent == "SA":
-        agent = SA(config, seed)
+        # agent = SA(config, seed)
+        config['layer_size'] = 16
+        config['num_hidden'] = 1
+        agent = LogisticHazardSA(config, seed)
     elif type_agent == 'LambdaSA':
         agent = LambdaSA(config, seed)
         lambda_cox=True

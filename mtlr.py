@@ -62,6 +62,30 @@ class ConfigParams:
 			if k in inspect.signature(cls).parameters
 		})
 
+class MTLR_network(nn.Module):
+	def __init__(self, state_dim, num_outputs, layer_size=128, num_hidden=1):
+		super(MTLR_network, self).__init__()
+
+		self.l0 = nn.Linear(state_dim, num_outputs)
+		self.l1 = nn.Linear(state_dim, layer_size)
+		self.l2 = nn.Linear(layer_size, layer_size)
+		self.l3 = nn.Linear(layer_size, layer_size)
+		self.l4 = nn.Linear(layer_size, num_outputs)
+
+		self.num_hidden = num_hidden
+
+	def forward(self, state):
+		if self.num_hidden == 0:
+			q = self.l0(state)
+		else:
+			q = F.elu(self.l1(state))
+			if self.num_hidden > 1:
+				q = F.elu(self.l2(q))
+			if self.num_hidden > 2:
+				q = F.elu(self.l3(q))
+			q = self.l4(q)
+		return q
+
 class MTLR(nn.Module):
 	"""Multi-task logistic regression for individualised
 	survival prediction.
@@ -85,15 +109,6 @@ class MTLR(nn.Module):
 	"""
 
 	def __init__(self, config_kwargs, seed):
-		"""Initialises the module.
-
-		Parameters
-		----------
-		in_features
-			Number of input features.
-		num_time_bins
-			The number of bins to divide the time axis into.
-		"""
 		super().__init__()
 
 		self.config = ConfigParams.from_dict(config_kwargs)
@@ -117,13 +132,13 @@ class MTLR(nn.Module):
 					 'rs': rs,
 					 'seqs_ts': seqs_ts}
 
-		self.in_features = seqs.shape[-1]
+		self.state_dim = seqs.shape[-1]
 		self.layer_size = self.config.layer_size
 		self.num_hidden = self.config.num_hidden
 		self.use_quantiles = self.config.use_quantiles
 
 		self.column_names = []
-		for i in range(self.in_features):
+		for i in range(self.state_dim):
 			self.column_names.append('feature_' + str(i))
 		self.column_names += ['time', 'event']
 
@@ -131,22 +146,8 @@ class MTLR(nn.Module):
 		self.time_bins = torch.tensor(time_bins, dtype=torch.float).to(device)
 		self.num_time_bins = len(self.time_bins) + 1
 
-		self.mtlr_weight = nn.Parameter(torch.Tensor(self.in_features,
-													 self.num_time_bins - 1))
-		self.mtlr_bias = nn.Parameter(torch.Tensor(self.num_time_bins - 1))
-
-		# `G` is the coding matrix from [2]_ used for fast summation.
-		# When registered as buffer, it will be automatically
-		# moved to the correct device and stored in saved
-		# model state.
-		self.register_buffer(
-			"G",
-			torch.tril(
-				torch.ones(self.num_time_bins - 1,
-						   self.num_time_bins,
-						   requires_grad=True)))
-		self.reset_parameters()
-		self = self.to(device)
+		self.MTLR_network = MTLR_network(self.state_dim, self.num_atoms, self.layer_size, self.num_hidden).to(device)
+		self.MTLR_optimizer = torch.optim.Adam(self.MTLR_network.parameters(), lr=self.config.learning_rate, weight_decay=self.config.weight_decay)
 
 	def get_train_val_test(self, val_size=.15, test_size=.2):
 		data_manager = MTLRDataGenerator
@@ -189,31 +190,6 @@ class MTLR(nn.Module):
 								batch_size=self.config.batch_size)
 
 		return train_gen, val_gen, test_gen
-
-	def forward(self, x: torch.Tensor) -> torch.Tensor:
-		"""Performs a forward pass on a batch of examples.
-
-		Parameters
-		----------
-		x : torch.Tensor, shape (num_samples, num_features)
-			The input data.
-
-		Returns
-		-------
-		torch.Tensor, shape (num_samples, num_time_bins)
-			The predicted time logits.
-		"""
-		out = torch.matmul(x, self.mtlr_weight) + self.mtlr_bias
-		return torch.matmul(out, self.G)
-
-	def reset_parameters(self):
-		"""Resets the model parameters."""
-		nn.init.xavier_normal_(self.mtlr_weight)
-		nn.init.constant_(self.mtlr_bias, 0.)
-
-	def __repr__(self):
-		return (f"{self.__class__.__name__}(in_features={self.in_features},"
-				f" num_time_bins={self.num_time_bins})")
 
 		# training functions
 	def train(self, train_gen, verbose=True):
@@ -258,19 +234,17 @@ class MTLR(nn.Module):
 
 		x = torch.tensor(data_train.drop(["time", "event"], axis=1).values, dtype=torch.float)
 		y = encode_survival(data_train["time"].values, data_train["event"].values, self.time_bins.cpu())
-		optimizer = make_optimizer(Adam, self, lr=self.config.learning_rate, weight_decay=self.config.weight_decay)
-		reset_parameters(self)
 		train_loader = DataLoader(TensorDataset(x, y), batch_size=self.config.batch_size, shuffle=True)
 		
 		pbar =  trange(self.config.num_epochs, disable=not verbose)
 		for i in pbar:
 			for xi, yi in train_loader:
 				xi, yi = xi.to(device), yi.to(device)
-				y_pred = self.forward(xi)
+				y_pred = self.MTLR_network(xi)
 				loss = mtlr_neg_log_likelihood(y_pred, yi, self, C1=self.config.C1, average=True)
-				optimizer.zero_grad()
+				self.MTLR_optimizer.zero_grad()
 				loss.backward()
-				optimizer.step()
+				self.MTLR_optimizer.step()
 			pbar.set_description(f"[epoch {i+1: 4}/{self.config.num_epochs}]")
 			pbar.set_postfix_str(f"loss = {loss.item():.4f}")
 
@@ -290,24 +264,12 @@ class MTLR(nn.Module):
 		data_test = pd.DataFrame(data_test_tensor.cpu(), columns=self.column_names)
 
 		x = torch.tensor(data_test.drop(["time", "event"], axis=1).values, dtype=torch.float, device=device)
-		logits = self.forward(x)
+		logits = self.MTLR_network(x)
 		isds = mtlr_survival(logits).detach().cpu().numpy()
 		isds[:,isds.shape[1]-1] = np.zeros((isds.shape[0]))
-		print('isds:')
-		print(isds)
-		print('eval_times:')
-		print(data_test["time"])
-		print('time_bins:')
-		print(time_bins)
-		print('isds.shape:')
-		print(isds.shape)
-		print('data_test["time"].shape:')
-		print(data_test["time"].shape)
 		time_bins = time_bins.detach().cpu().numpy()
 		time_bins = np.concatenate((time_bins, np.array([time_bins[len(time_bins)-1]+1])))
 		evaluator = SurvivalEvaluator(isds, time_bins, data_test["time"], data_test["event"], data_train["time"], data_train["event"])
-		print("predicted_times:")
-		print(evaluator.predict_time_from_curve(evaluator.predict_time_method))
 
 		cindex, concordant_pairs, total_pairs = evaluator.concordance(ties="None")
 		ibs = evaluator.integrated_brier_score(num_points=isds.shape[1], IPCW_weighted=True, draw_figure=False)
@@ -559,61 +521,3 @@ def encode_survival(time: Union[float, int, TensorOrArray],
 		else:
 			y[i, bin_idx:] = 1
 	return y.squeeze()
-
-
-def reset_parameters(model: torch.nn.Module) -> torch.nn.Module:
-	"""Resets the parameters of a PyTorch module and its children."""
-	for m in model.modules():
-		try:
-			m.reset_parameters()
-		except AttributeError:
-			continue
-	return model
-
-def make_optimizer(opt_cls: torch.optim.Optimizer,
-				   model: torch.nn.Module,
-				   **kwargs) -> torch.optim.Optimizer:
-	"""Creates a PyTorch optimizer for MTLR training.
-
-	This is a helper function to instantiate an optimizer with no weight decay
-	on biases (which shouldn't be regularized) and MTLR parameters (which have
-	a separate regularization mechanism). Note that the `opt_cls` argument
-	should be the optimizer class, not an instantiated object (e.g. optim.Adam
-	instead of optim.Adam(model.parameters(), ...)).
-
-	Parameters
-	----------
-	opt_cls
-		The optimizer class to instantiate.
-	model
-		The PyTorch module whose parameters should be optimized.
-	kwargs
-		Additional keyword arguments to optimizer constructor.
-
-	Returns
-	-------
-	torch.optim.Optimizer
-		The instantiated optimizer object.
-
-	"""
-	params_dict = dict(model.named_parameters())
-	weights = [v for k, v in params_dict.items() if "mtlr" not in k and "bias" not in k]
-	biases = [v for k, v in params_dict.items() if "bias" in k]
-	mtlr_weights = [v for k, v in params_dict.items() if "mtlr_weight" in k]
-	# Don't use weight decay on the biases and MTLR parameters, which have
-	# their own separate L2 regularization
-	optimizer = opt_cls([
-		{"params": weights},
-		{"params": biases, "weight_decay": 0.},
-		{"params": mtlr_weights, "weight_decay": 0.},
-	], **kwargs)
-	return optimizer
-
-def reset_parameters(model):
-	"""Resets the parameters of a PyTorch module and its children."""
-	for m in model.modules():
-		try:
-			m.reset_parameters()
-		except AttributeError:
-			continue
-	return model
