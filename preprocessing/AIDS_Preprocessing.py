@@ -81,15 +81,16 @@ def main():
         end_time = int(row['stop'])
         #if reached a new case, save the previous sequence
         if index > 0 and current_id != prev_id:
-            seqs.append(seq)
-            cs.append(c)
-            ts.append(len(seq))
-            rs.append(r)
-            seqs_ts.append(seq_t)
-            all_rs.pop() #remove terminal states
-            all_end_ts.append(prev_end - prev_start)
-            if len(seq) > horizon:
-                horizon = len(seq)
+            if len(seq) > 1:
+                seqs.append(seq)
+                cs.append(c)
+                ts.append(len(seq))
+                rs.append(r)
+                seqs_ts.append(seq_t)
+                all_rs.pop() #remove terminal states
+                all_end_ts.append(prev_end - prev_start)
+                if len(seq) > horizon:
+                    horizon = len(seq)
             seq = []
             c = -1
             t = -1
@@ -134,8 +135,10 @@ def main():
     with open(output_path, 'wb') as f:
         pickle.dump(aids_dict, f) 
 
+    print("Horizon:", horizon)
+
     #compute statistics of time between states
-    print("Statistics of Time Between States:")
+    print("\nStatistics of Time Between States:")
     print(f"\tMinimum: {np.min(all_rs)}")
     print(f"\tMaximum: {np.max(all_rs)}")
     print(f"\tMedian: {np.median(all_rs)}")
@@ -143,7 +146,7 @@ def main():
     print(f"\tStd. Dev.: {np.std(all_rs)}")
 
     #compute statistics of time between last state and time of event
-    print("Statistics of Time Last State and Time of Event:")
+    print("\nStatistics of Time Last State and Time of Event:")
     print(f"\tMinimum: {np.min(all_end_ts)}")
     print(f"\tMaximum: {np.max(all_end_ts)}")
     print(f"\tMedian: {np.median(all_end_ts)}")

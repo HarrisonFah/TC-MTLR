@@ -378,11 +378,8 @@ def get_targets_and_masks(seqs, ts, cs, landmark):
         target, h_w, mask = get_single_target_and_mask(
             seq, t, c, landmark=landmark)
         targets.append(target)
-        print('target:', target)
         h_ws.append(h_w)
-        print('h_w:', h_w)
         masks.append(mask)
-        print('mask:', mask)
 
     target = np.stack(targets)
     mask = np.stack(masks).astype(bool)
@@ -408,7 +405,7 @@ def get_placeholder(dim, horizon, data_path=None):
     return seqs, ts, cs
 
 
-def train_val_test_split(X, target, h_ws, mask, ts, cs, rs, seqs_ts, seed, val_size=0.15, test_size=0.2):
+def train_val_test_split(X, target, h_ws, mask, ts, cs, rs, seqs_ts, seed, val_size=0.15, test_size=0.2, num_train_seqs=None):
     # Shuffle the indices of the data
     num_samples = X.shape[0]
     shuffled_indices = np.arange(num_samples)
@@ -421,6 +418,8 @@ def train_val_test_split(X, target, h_ws, mask, ts, cs, rs, seqs_ts, seed, val_s
 
     #Split the shuffled indices into train and test sets
     train_indices = shuffled_indices[:val_idx]
+    if num_train_seqs:
+        train_indices = train_indices[:num_train_seqs]
     val_indices = shuffled_indices[val_idx:test_idx]
     test_indices = shuffled_indices[test_idx:]
 

@@ -9,7 +9,8 @@ import os
 from utils import MTLRDataGenerator, get_data, train_val_test_split, median_time_bins, quantile_time_bins
 from SurvivalEVAL.Evaluator import SurvivalEvaluator
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+#device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = "cpu"
 
 # Implementation of TC-MTLR for sequences of states (no actions)
 # Uses partial code from https://github.com/vwxyzjn/cleanrl/blob/master/cleanrl/c51.py
@@ -113,7 +114,11 @@ class TC_MTLR(object):
 
 		self.total_it = 0
 
-	def init_networks(self, time_bins):
+	def init_networks(self, train_gen):
+		if self.use_quantiles:
+			time_bins = quantile_time_bins(train_gen, self.horizon)
+		else:
+			time_bins = median_time_bins(train_gen, self.horizon)
 		self.time_bins = torch.tensor(time_bins).to(device).float()
 		self.num_atoms = len(self.time_bins)
 		self.MTLR_network = MTLR_network(self.state_dim, self.num_atoms, self.layer_size, self.num_hidden).to(device)
@@ -152,7 +157,7 @@ class TC_MTLR(object):
 			z = self.time_bins
 			bellman = (reward + self.discount * not_done * z).clamp(min(self.time_bins), max(self.time_bins)-(1e-6)) #calculates the bellman value for each time bin
 			buckets = torch.bucketize(bellman, z) #gets the index of time bins that each bellman value falls into
-			l = (buckets - 1).clip(max=(z.shape[0]-2)) #gets the lower index
+			l = (buckets - 1).clip(min=0, max=(z.shape[0]-2)) #gets the lower index
 			u = l + 1 #gets the upper index
 			l_val = self.time_bins[l] #gets the value of lower time bin
 			u_val = self.time_bins[u] #gets the value of upper time bin
@@ -214,7 +219,7 @@ class TC_MTLR(object):
 			mask[:,i] = torch.zeros((state.shape[0],)).to(device=device)
 		return isd
 
-	def get_train_val_test(self, val_size=.15, test_size=.2):
+	def get_train_val_test(self, val_size=.15, test_size=.2, num_train_seqs=None):
 		data_manager = MTLRDataGenerator
 
 		X_train, X_val, X_test, y_train, y_val, y_test, hws_train, hws_val, hws_test, \
@@ -229,18 +234,14 @@ class TC_MTLR(object):
 																	self.data['seqs_ts'],
 																	seed=self.seed,
 																	val_size=val_size,
-																	test_size=test_size)
+																	test_size=test_size,
+																	num_train_seqs=num_train_seqs)
 
 		train_gen = data_manager(X=X_train,
 								 ts=ts_train, cs=cs_train,
 								 y=y_train, rs=rs_train,
 								 seqs_ts=seqs_ts_train, mask=m_train,
 								 batch_size=self.config.batch_size)
-		if self.use_quantiles:
-			time_bins = quantile_time_bins(train_gen, self.horizon)
-		else:
-			time_bins = median_time_bins(train_gen, self.horizon)
-		self.init_networks(time_bins)
 		
 		val_gen = data_manager(X=X_val,
 								 ts=ts_val, cs=cs_val,

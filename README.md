@@ -3,6 +3,8 @@ Code for reproducing results from the paper "Temporally-Consistent Multi-Task Lo
 
 ## Run code (temp): python main.py --agent DeepLambdaSA --config configs/config_pbc.yaml
 
+python main.py --config configs/config_pbc.yaml
+
 ## Installing Packages
 
 ## Recreating Data Files

@@ -190,7 +190,7 @@ class DeepLambdaSA(BaseSA):
 
         self.update = jax.jit(update)
 
-    def get_train_val_test(self, val_size=.15, test_size=.2):
+    def get_train_val_test(self, val_size=.15, test_size=.2, num_train_seqs=None):
         if self.config.calculate_tgt_and_mask:
             data_manager = TimesDataGenerator
         else:
@@ -209,14 +209,14 @@ class DeepLambdaSA(BaseSA):
                                                                     self.data['seqs_ts'],
                                                                     seed=self.seed,
                                                                     val_size=val_size,
-                                                                    test_size=test_size)
+                                                                    test_size=test_size,
+                                                                    num_train_seqs=num_train_seqs)
         subkey = self._next_rng_key()
         train_gen = data_manager(X=X_train, h_ws=hws_train,
                                  ts=ts_train, cs=cs_train,
                                  y=y_train, rs=rs_train,
                                  seqs_ts=seqs_ts_train, mask=m_train,
                                  batch_size=self.config.batch_size, rng=subkey)
-        self.set_time_bins(train_gen)
         subkey = self._next_rng_key()
         val_gen = data_manager(X=X_val, h_ws=hws_val,
                                  ts=ts_val, cs=cs_val,

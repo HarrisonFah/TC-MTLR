@@ -77,9 +77,6 @@ class LogisticHazardSA(object):
 		self,
 		config_kwargs,
 		seed,
-		discount=1.0,
-		tau=1.0,
-		policy_freq=10,
 	):
 		self.config = ConfigParams.from_dict(config_kwargs)
 		self.seed = seed
@@ -107,14 +104,15 @@ class LogisticHazardSA(object):
 		self.num_hidden = self.config.num_hidden
 		self.use_quantiles = self.config.use_quantiles
 
-		self.discount = discount
-		self.tau = tau
-		self.policy_freq = policy_freq
 		self.batch_size = self.config.batch_size
 
 		self.total_it = 0
 
-	def init_networks(self, time_bins):
+	def init_networks(self, train_gen):
+		if self.use_quantiles:
+			time_bins = quantile_time_bins(train_gen, self.horizon)
+		else:
+			time_bins = median_time_bins(train_gen, self.horizon)
 		self.time_bins = torch.tensor(time_bins).to(device).float()
 		self.num_atoms = len(self.time_bins)
 		self.network = LH_network(self.state_dim, self.num_atoms, self.layer_size, self.num_hidden).to(device)
@@ -129,9 +127,9 @@ class LogisticHazardSA(object):
 		cuts = self.time_bins.cpu().numpy()
 		label_transform = LogisticHazard.label_transform(cuts)
 		y = label_transform.transform(times, ~censors)
-		self.model.fit(x, y, self.batch_size, self.config.num_epochs)
+		self.model.fit(x, y, self.batch_size, self.config.num_epochs, verbose=False)
 
-	def get_train_val_test(self, val_size=.15, test_size=.2):
+	def get_train_val_test(self, val_size=.15, test_size=.2, num_train_seqs=None):
 		data_manager = MTLRDataGenerator
 
 		X_train, X_val, X_test, y_train, y_val, y_test, hws_train, hws_val, hws_test, \
@@ -146,18 +144,14 @@ class LogisticHazardSA(object):
 																	self.data['seqs_ts'],
 																	seed=self.seed,
 																	val_size=val_size,
-																	test_size=test_size)
+																	test_size=test_size,
+																	num_train_seqs=num_train_seqs)
 
 		train_gen = data_manager(X=X_train,
 								 ts=ts_train, cs=cs_train,
 								 y=y_train, rs=rs_train,
 								 seqs_ts=seqs_ts_train, mask=m_train,
 								 batch_size=self.config.batch_size)
-		if self.use_quantiles:
-			time_bins = quantile_time_bins(train_gen, self.horizon)
-		else:
-			time_bins = median_time_bins(train_gen, self.horizon)
-		self.init_networks(time_bins)
 		
 		val_gen = data_manager(X=X_val,
 								 ts=ts_val, cs=cs_val,
@@ -179,6 +173,7 @@ class LogisticHazardSA(object):
 		eval_state = torch.tensor(eval_state).to(device)
 		isds = self.model.predict_surv(eval_state).detach().cpu().numpy()
 		isds[:,-1] = np.zeros((isds.shape[0],))
+		isds[:,0] = np.ones((isds.shape[0],))
 		evaluator = SurvivalEvaluator(isds, self.time_bins, eval_times, ~eval_censor, train_times, train_censor)
 
 		cindex, concordant_pairs, total_pairs = evaluator.concordance(ties="None")

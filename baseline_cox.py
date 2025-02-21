@@ -49,7 +49,7 @@ class ModelState:
 
 class SA(BaseSA):
 
-    def get_train_val_test(self, val_size=.15, test_size=.2):
+    def get_train_val_test(self, val_size=.15, test_size=.2, num_train_seqs=None):
         if self.config.calculate_tgt_and_mask:
             data_manager = TgtMskDataGenerator
         else:
@@ -68,7 +68,8 @@ class SA(BaseSA):
                                                                     self.data['seqs_ts'],
                                                                     seed=self.seed,
                                                                     val_size=val_size,
-                                                                    test_size=test_size)
+                                                                    test_size=test_size,
+                                                                    num_train_seqs=num_train_seqs)
         subkey = self._next_rng_key()
         train_gen = data_manager(X=X_train,
                                  ts=ts_train, cs=cs_train,

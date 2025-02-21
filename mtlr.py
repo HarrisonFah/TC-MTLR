@@ -14,6 +14,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from torch.utils.data import DataLoader, TensorDataset
 from torch.optim import Adam
 from sklearn.model_selection import KFold, train_test_split
@@ -26,7 +27,8 @@ import inspect
 from utils import MTLRDataGenerator, get_data, train_val_test_split, median_time_bins, quantile_time_bins
 from SurvivalEVAL.Evaluator import SurvivalEvaluator
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+#device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = "cpu"
 
 @dataclass
 class ConfigParams:
@@ -142,14 +144,17 @@ class MTLR(nn.Module):
 			self.column_names.append('feature_' + str(i))
 		self.column_names += ['time', 'event']
 
-	def init_networks(self, time_bins):
+	def init_networks(self, train_gen):
+		if self.use_quantiles:
+			time_bins = quantile_time_bins(train_gen, self.horizon)
+		else:
+			time_bins = median_time_bins(train_gen, self.horizon)
 		self.time_bins = torch.tensor(time_bins, dtype=torch.float).to(device)
 		self.num_time_bins = len(self.time_bins) + 1
-
-		self.MTLR_network = MTLR_network(self.state_dim, self.num_atoms, self.layer_size, self.num_hidden).to(device)
+		self.MTLR_network = MTLR_network(self.state_dim, self.num_time_bins, self.layer_size, self.num_hidden).to(device)
 		self.MTLR_optimizer = torch.optim.Adam(self.MTLR_network.parameters(), lr=self.config.learning_rate, weight_decay=self.config.weight_decay)
 
-	def get_train_val_test(self, val_size=.15, test_size=.2):
+	def get_train_val_test(self, val_size=.15, test_size=.2, num_train_seqs=None):
 		data_manager = MTLRDataGenerator
 
 		X_train, X_val, X_test, y_train, y_val, y_test, hws_train, hws_val, hws_test, \
@@ -164,18 +169,14 @@ class MTLR(nn.Module):
 																	self.data['seqs_ts'],
 																	seed=self.seed,
 																	val_size=val_size,
-																	test_size=test_size)
+																	test_size=test_size,
+																	num_train_seqs=num_train_seqs)
 
 		train_gen = data_manager(X=X_train,
 								 ts=ts_train, cs=cs_train,
 								 y=y_train, rs=rs_train,
 								 seqs_ts=seqs_ts_train, mask=m_train,
 								 batch_size=self.config.batch_size)
-		if self.use_quantiles:
-			time_bins = quantile_time_bins(train_gen, self.horizon)
-		else:
-			time_bins = median_time_bins(train_gen, self.horizon)
-		self.init_networks(time_bins)
 		
 		val_gen = data_manager(X=X_val,
 								 ts=ts_val, cs=cs_val,
@@ -192,7 +193,7 @@ class MTLR(nn.Module):
 		return train_gen, val_gen, test_gen
 
 		# training functions
-	def train(self, train_gen, verbose=True):
+	def train(self, train_gen, verbose=False):
 		"""Trains the MTLR model using minibatch gradient descent.
 		
 		Parameters
