@@ -121,18 +121,8 @@ def pad_sequences(seqs, max_length):
 
 
 def get_data(dataset_name, landmark, calculate_tgt_and_mask, kwargs):
-    loaders = {'aids': get_data_baseline,
-               'pbc2': get_data_baseline,
-               'placeholder': get_placeholder,
-               'big_rw': get_data_baseline,
-               'single_task': get_single_task_dataset,
-               'mixed_tasks': get_mixed_task_dataset,
-               'churn_lastfm_months': get_churn_lastfm_dataset_months,
-               'churn_lastfm_days': get_churn_lastfm_dataset_days,
-               'churn_kkbox': get_churn_kkbox}
-
     try:
-        seqs, ts, cs, rs, seqs_ts = loaders[dataset_name](**kwargs)
+        seqs, ts, cs, rs, seqs_ts = get_data_baseline(**kwargs)
         if calculate_tgt_and_mask:
             target, h_ws, mask = get_targets_and_masks(seqs, ts, cs, landmark)
         else:
@@ -494,6 +484,52 @@ class BaseDataGenerator:
         batch = next(self.generator)
         return batch
 
+    def get_initial_data(self):
+        X = self.X
+        ts = self.ts
+        cs = self.cs
+        rs = self.rs
+        seqs_ts = self.seqs_ts
+        num_samples = X.shape[0]
+
+        state = None
+        next_state = None
+        reward = None
+        not_done = None
+        censors = None
+        times = None
+        for idx in range(num_samples):
+            censored = cs[idx]
+            end_idx = ts[idx] - censored
+            if state is None:
+                if censored:
+                    state = X[idx,0].reshape((1,-1))
+                    reward = rs[idx,0]
+                    not_done = np.ones((1, 1))
+                    censors = np.full((1, 1), censored)
+                    times = seqs_ts[idx,0]
+                else:
+                    state = X[idx,0].reshape((1,-1))
+                    reward = rs[idx,0]
+                    not_done = np.ones((1, 1))
+                    censors = np.full((1, 1), censored)
+                    times = seqs_ts[idx,0]
+            else:
+                if censored:
+                    state = np.concatenate((state, X[idx,0].reshape((1,-1))))
+                    reward = np.concatenate((reward, rs[idx,0]), axis=None)
+                    not_done = np.concatenate((not_done, np.ones((1, 1))), axis=None)
+                    censors = np.concatenate((censors, np.full((1, 1), censored)), axis=None)
+                    times = np.concatenate((times, seqs_ts[idx,0]), axis=None)
+                else:
+                    state = np.concatenate((state, X[idx,0].reshape((1,-1))))
+                    reward = np.concatenate((reward, rs[idx,0]), axis=None)
+                    not_done = np.concatenate((not_done, np.ones((1, 1))), axis=None)
+                    censors = np.concatenate((censors, np.full((1, 1), censored)), axis=None)
+                    times = np.concatenate((times, seqs_ts[idx,0]), axis=None)
+
+        return state, next_state, reward, not_done, times, censors
+
     def get_all_data(self):
         X = self.X
         ts = self.ts
@@ -773,19 +809,28 @@ def convert_to_jax_arrays(*numpy_arrays):
     jax_arrays = (jnp.asarray(arr) for arr in numpy_arrays)
     return jax_arrays
 
-def median_time_bins(train_gen, horizon):
-    _, _, rewards, _, _, _  = train_gen.get_all_data()
+def median_time_bins(train_gen, val_gen, test_gen, horizon):
+    _, _, train_rewards, _, _, _  = train_gen.get_all_data()
+    _, _, val_rewards, _, _, _  = val_gen.get_all_data()
+    _, _, test_rewards, _, _, _  = test_gen.get_all_data()
+    rewards = np.concatenate((train_rewards, val_rewards, test_rewards))
     
     reward_median = np.median(rewards).item()
     time_bins = []
     for idx in range(horizon+1):
         time_bins.append(reward_median*idx)
-
     return time_bins
 
-def quantile_time_bins(train_gen, horizon):
-    _, _, _, _, times, censors  = train_gen.get_all_data()
-    times = times[censors == 0]
+def quantile_time_bins(train_gen, val_gen, test_gen, horizon):
+    _, _, _, _, train_times, train_censors  = train_gen.get_all_data()
+    train_times = train_times[train_censors == 0]
+    _, _, _, _, val_times, val_censors  = val_gen.get_all_data()
+    val_times = val_times[val_censors == 0]
+    _, _, _, _, test_times, test_censors  = test_gen.get_all_data()
+    test_times = test_times[test_censors == 0]
+    times = np.concatenate((train_times, val_times, test_times))
+    uniform = np.random.uniform(-1e-2, 1e-2, size=times.shape)
+    times = times.astype(uniform.dtype) + np.random.uniform(-1e-2, 1e-2, size=times.shape) #modifies times slightly so that the quantile bins do not have duplicates
     bins = np.quantile(times, np.linspace(0, 1, horizon+1))
     bins[0] = 0
     return bins

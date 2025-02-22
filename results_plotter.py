@@ -14,11 +14,11 @@ ALGS = {
         'MTLR': 'MTLR'
         }
 ALG_COLORS = {
-        'Landmarking': 'blue', 
-        'TCSR': 'red', 
-        'DeepTCSR': 'green', 
-        'TC-MTLR': 'purple', 
-        'MTLR': 'orange'
+        'Landmarking': 'red', 
+        'TCSR': 'blue', 
+        'DeepTCSR': 'purple', 
+        'TC-MTLR': 'orange', 
+        'MTLR': 'green'
         }
 METRICS = {
             'C-Index': 'cindex',
@@ -58,8 +58,10 @@ if __name__ == '__main__':
                 for trial in range(NUM_TRIALS):
                     metric_val = results_dict[str(seq)][str(trial)][alg_alt][metric_alt]
                     alg_results[seq_idx].append(metric_val)
+            #print(alg_results)
             alg_results = np.array(alg_results)
             means = np.mean(alg_results, axis=1)
+            #print(means)
             stds = np.std(alg_results, axis=1)
             plt.plot(SEQS_LIST, means, label=alg, color=ALG_COLORS[alg], linestyle='dashed')
             plt.errorbar(SEQS_LIST, means, yerr=stds, color=ALG_COLORS[alg], fmt="o", markersize=4, linewidth=2, capsize=2, capthick=2, alpha=0.75)

@@ -3,13 +3,13 @@ import numpy as np
 import pickle
 
 N_SEQUENCES = 10000
-DIM = 20 #20 for small, 50 for large
-HORIZON = 10 #10 for small, 100 for large
+DIM = 50 #20 for small, 50 for large
+HORIZON = 100 #11 for small, 100 for large
 mu = 0 #mean for initialization
-b = 0 #0 for small, -5 for large
-w = 0.5
+b = -15 #-3 for small, -15 for large
+w = math.sqrt(0.5)
 
-output_path = '../data/SmallRW.pkl'
+output_path = '../data/LargeRW.pkl'
 
 def sigmoid(x):
   return 1 / (1 + math.exp(-x))
@@ -33,7 +33,7 @@ def random_walk(gamma):
         if terminate(x, gamma):
             c = False
             break
-        x = np.random.normal(loc=x, scale=np.full(x.shape, w**2), size=x.shape)
+        x = np.random.normal(loc=x, scale=np.full(x.shape, w), size=x.shape)
     seq_t = [i for i in range(len(seq), 0, -1)]
     return seq, c, t, r, seq_t
 
@@ -73,7 +73,8 @@ def main():
     with open(output_path, 'wb') as f:
         pickle.dump(rw_dict, f) 
     print(f"Censor Count (%): {censor_count} ({censor_count/N_SEQUENCES*100})")
-    print(f"Average Length (std.dev): {np.mean(seq_lens)} ({np.std(seq_lens)})")
+    print(f"Median Length: {np.median(seq_lens)}")
+    print(f"Mean Length (std.dev): {np.mean(seq_lens)} ({np.std(seq_lens)})")
 
 main()
         

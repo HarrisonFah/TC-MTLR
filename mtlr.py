@@ -144,11 +144,11 @@ class MTLR(nn.Module):
 			self.column_names.append('feature_' + str(i))
 		self.column_names += ['time', 'event']
 
-	def init_networks(self, train_gen):
+	def init_networks(self, train_gen, val_gen, test_gen):
 		if self.use_quantiles:
-			time_bins = quantile_time_bins(train_gen, self.horizon)
+			time_bins = quantile_time_bins(train_gen, val_gen, test_gen, self.horizon)
 		else:
-			time_bins = median_time_bins(train_gen, self.horizon)
+			time_bins = median_time_bins(train_gen, val_gen, test_gen, self.horizon)
 		self.time_bins = torch.tensor(time_bins, dtype=torch.float).to(device)
 		self.num_time_bins = len(self.time_bins) + 1
 		self.MTLR_network = MTLR_network(self.state_dim, self.num_time_bins, self.layer_size, self.num_hidden).to(device)
@@ -257,9 +257,9 @@ class MTLR(nn.Module):
 		data_train_tensor = torch.cat((state, time.reshape(-1, 1), (~censor).reshape(-1, 1)), dim=1)
 		data_train = pd.DataFrame(data_train_tensor.cpu(), columns=self.column_names)
 
-		state, next_state, reward, not_done, time, censor = eval_gen.get_all_data()
+		state, next_state, reward, not_done, eval_times, censor = eval_gen.get_all_data()
 		state = torch.FloatTensor(state).to(device)
-		time = torch.FloatTensor(time).to(device).reshape((-1,1))
+		time = torch.FloatTensor(eval_times).to(device).reshape((-1,1))
 		censor = torch.BoolTensor(censor).to(device).reshape((-1,1))
 		data_test_tensor = torch.cat((state, time.reshape(-1, 1), (~censor).reshape(-1, 1)), dim=1)
 		data_test = pd.DataFrame(data_test_tensor.cpu(), columns=self.column_names)
@@ -271,10 +271,17 @@ class MTLR(nn.Module):
 		time_bins = time_bins.detach().cpu().numpy()
 		time_bins = np.concatenate((time_bins, np.array([time_bins[len(time_bins)-1]+1])))
 		evaluator = SurvivalEvaluator(isds, time_bins, data_test["time"], data_test["event"], data_train["time"], data_train["event"])
+		# print("eval_times:")
+		# print(eval_times)
+		predicted_times = evaluator.predict_time_from_curve(evaluator.predict_time_method)
+		# print("predicted_times:")
+		# print(predicted_times)
+		print("mae:", np.mean(np.abs(eval_times - predicted_times)))
 
 		cindex, concordant_pairs, total_pairs = evaluator.concordance(ties="None")
 		ibs = evaluator.integrated_brier_score(num_points=isds.shape[1], IPCW_weighted=True, draw_figure=False)
 		mae_uncensored = evaluator.mae(method='Uncensored')
+		print("mae_uncensored:", mae_uncensored)
 		mae_hinge = evaluator.mae(method='Hinge')
 		mae_po = evaluator.mae(method='Pseudo_obs', weighted=True)
 

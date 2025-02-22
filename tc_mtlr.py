@@ -114,11 +114,11 @@ class TC_MTLR(object):
 
 		self.total_it = 0
 
-	def init_networks(self, train_gen):
+	def init_networks(self, train_gen, val_gen, test_gen):
 		if self.use_quantiles:
-			time_bins = quantile_time_bins(train_gen, self.horizon)
+			time_bins = quantile_time_bins(train_gen, val_gen, test_gen, self.horizon)
 		else:
-			time_bins = median_time_bins(train_gen, self.horizon)
+			time_bins = median_time_bins(train_gen, val_gen, test_gen, self.horizon)
 		self.time_bins = torch.tensor(time_bins).to(device).float()
 		self.num_atoms = len(self.time_bins)
 		self.MTLR_network = MTLR_network(self.state_dim, self.num_atoms, self.layer_size, self.num_hidden).to(device)
@@ -264,10 +264,17 @@ class TC_MTLR(object):
 		isds = self.get_isd(eval_state).detach().cpu().numpy()
 		isds[:,-1] = np.zeros((isds.shape[0],))
 		evaluator = SurvivalEvaluator(isds, self.time_bins, eval_times, ~eval_censor, train_times, train_censor)
+		# print("eval_times:")
+		# print(eval_times)
+		predicted_times = evaluator.predict_time_from_curve(evaluator.predict_time_method)
+		# print("predicted_times:")
+		# print(predicted_times)
+		print("mae:", np.mean(np.abs(eval_times - predicted_times)))
 
 		cindex, concordant_pairs, total_pairs = evaluator.concordance(ties="None")
 		ibs = evaluator.integrated_brier_score(num_points=isds.shape[1], IPCW_weighted=True, draw_figure=False)
 		mae_uncensored = evaluator.mae(method='Uncensored')
+		print("mae_uncensored:", mae_uncensored)
 		mae_hinge = evaluator.mae(method='Hinge')
 		mae_po = evaluator.mae(method='Pseudo_obs', weighted=True)
 

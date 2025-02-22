@@ -147,9 +147,9 @@ if __name__ == '__main__':
                             state, next_state, reward, not_done, times, censors = train_gen.get_all_data()
 
                         if type_agent in ['SA', 'LambdaSA', 'DeepLambdaSA']:
-                            agent.set_time_bins(train_gen)
+                            agent.set_time_bins(train_gen, val_gen, test_gen)
                         else:
-                            agent.init_networks(train_gen)
+                            agent.init_networks(train_gen, val_gen, test_gen)
                         
                         if type_agent == 'LambdaSA':
                             agent.train(X_train, ts_train, cs_train)

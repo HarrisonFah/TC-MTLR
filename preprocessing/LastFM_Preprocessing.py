@@ -20,7 +20,7 @@ import category_encoders as ce
 import datetime
 
 input_path = '../data/lastfm-dataset-1k/userid-timestamp-artid-artname-traid-traname.tsv'
-output_path = '../data/MonLastFM.pkl'
+output_path = '../data/LastFM.pkl'
 
 columns = ['userid', 'timestamp', 'musicbrainz-artist-id', 'artist-name', 'musicbrainz-track-id', 'track-name']
 
@@ -51,7 +51,6 @@ def main():
     encoded_songs = song_encoder.fit_transform(df['musicbrainz-track-id'])["musicbrainz-track-id_1"].to_list()
 
     all_rs = [] #used to get statistics of all consecutive time between states
-    all_end_ts = [] #used to get statistics of time between final state and time of event
 
     seqs = []
     cs = []

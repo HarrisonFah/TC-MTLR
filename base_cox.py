@@ -297,8 +297,8 @@ class BaseSA:
 		test_gen.reset()
 		return epoch_loss
 
-	def set_time_bins(self, train_gen):
-		time_bins = median_time_bins(train_gen, self.horizon)
+	def set_time_bins(self, train_gen, val_gen, test_gen):
+		time_bins = median_time_bins(train_gen, val_gen, test_gen, self.horizon)
 		self.time_bins = time_bins
 
 	def survival_curve(self, xs):
@@ -376,10 +376,18 @@ class BaseSA:
 		isds = np.copy(isds)
 		isds[:,-1] = np.zeros((isds.shape[0],)) # set S(K) = 0 so median times aren't more than the largest observed sample
 		evaluator = SurvivalEvaluator(isds, time_bins, eval_times, ~eval_censor, train_times, train_censor)
+		# print("eval_times:")
+		# print(eval_times)
+		predicted_times = evaluator.predict_time_from_curve(evaluator.predict_time_method)
+		# print("predicted_times:")
+		# print(predicted_times)
+		print("mae:", np.mean(np.abs(eval_times - predicted_times)))
+
 
 		cindex, concordant_pairs, total_pairs = evaluator.concordance(ties="None")
 		ibs = evaluator.integrated_brier_score(num_points=isds.shape[1], IPCW_weighted=True, draw_figure=False)
 		mae_uncensored = evaluator.mae(method='Uncensored')
+		print("mae_uncensored:", mae_uncensored)
 		mae_hinge = evaluator.mae(method='Hinge')
 		mae_po = evaluator.mae(method='Pseudo_obs', weighted=True)
 

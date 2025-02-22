@@ -1,11 +1,11 @@
-dataset_name: lastfm
+dataset_name: large_rw
 axis: 2  # For lambda baseline this has to be 1.
 batch_size: 128
 learning_rate: .1
 use_quantiles: False #used for mtlr quantile time bins
 log_interval: 1000
 weight_decay: 1.e-4
-num_epochs: 1000
+num_epochs: 100
 output_file: Results/{}/
 landmark: True
 target_lr: .5
@@ -15,15 +15,15 @@ arch:
   type: linear
   arch_kwargs:
     hidden_size: 16
-    seq_len: 52  # Has to be the same as the horizon
+    seq_len: 100  # Has to be the same as the horizon
     output_dim: 8
     num_layers: 1
     dropout: 0.05
 
 preprocessed_data: False
 dataset_kwargs:
-  horizon: 52
-  data_path: data/LastFM.pkl
+  horizon: 100
+  data_path: data/LargeRW.pkl
 
 lambda_: 1.0
 C1: 1.0

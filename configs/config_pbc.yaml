@@ -42,7 +42,7 @@ hyperparams:
     vals: [[1.e-1, 1.e-2, 1.e-3, 1.e-4], [5, 10, 20]] 
   DeepLambdaSA:
     names: [learning_rate, target_lr, lambda_]
-    vals: [[1.e-1, 1.e-2, 1.e-3, 1.e-4], [1.e-2, 1.e-3, 1.e-4], [0, 0.9, 0.95]]
+    vals: [[1.e-1, 1.e-2, 1.e-3, 1.e-4], [5.e-1, 1.e-1, 1.e-2], [0]]
   MTLR:
     names: [learning_rate, use_quantiles, C1]
     vals: [[1.e-3, 1.e-4, 1.e-5], [True, False], [1.0, 0.5, 0.1, 0.0]]

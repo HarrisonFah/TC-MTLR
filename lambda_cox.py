@@ -2,7 +2,6 @@ import jax
 import jax.numpy as jnp
 from base_cox import BaseSA, ConfigParams
 from utils import convert_to_jax_arrays, train_val_test_split, unroll, LazyTimesDataGenerator
-#from utils import convert_to_jax_arrays, train_test_split, unroll
 from dataclasses import dataclass
 
 
