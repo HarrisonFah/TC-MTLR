@@ -96,6 +96,7 @@ if __name__ == '__main__':
                 print(f'\tTrial: {trial}')
                 results_dict[num_seqs][trial] = {}
                 for type_agent in ["SA", "LambdaSA", "DeepLambdaSA", "TC_MTLR", "MTLR"]:
+                # for type_agent in ["SA", "LambdaSA", "DeepLambdaSA"]:
                     print(f'\t\tAgent: {type_agent}')
                     train_gen = None
                     val_gen = None
@@ -156,14 +157,14 @@ if __name__ == '__main__':
                         else:
                             agent.train(train_gen)
 
-                        isds, cindex, ibs, mae_uncensored, mae_hinge, mae_po = agent.eval(train_gen, val_gen, agent.time_bins, lambda_cox)
+                        isds, cindex, ibs, mae_uncensored, mae_hinge = agent.eval(train_gen, val_gen, agent.time_bins, lambda_cox)
                         if cindex > top_cindex:
                             top_cindex = cindex
                             top_hyperparams = hyperparam_vals
                             top_agent = agent
                             top_time_bins = agent.time_bins
 
-                    isds, cindex, ibs, mae_uncensored, mae_hinge, mae_po = top_agent.eval(train_gen, test_gen, top_time_bins, lambda_cox)
+                    isds, cindex, ibs, mae_uncensored, mae_hinge = top_agent.eval(train_gen, test_gen, top_time_bins, lambda_cox)
                     results_dict[num_seqs][trial][type_agent] = {
                                                 'hyperparam_names': hyperparams['names'],
                                                 'hyperparam_vals': top_hyperparams,

@@ -258,8 +258,8 @@ class TC_MTLR(object):
 		return train_gen, val_gen, test_gen
 
 	def eval(self, train_gen, eval_gen, time_bins, lambda_cox=False):
-		train_state, train_next_state, train_reward, train_not_done, train_times, train_censor  = train_gen.get_all_data()
-		eval_state, eval_next_state, eval_reward, eval_not_done, eval_times, eval_censor  = eval_gen.get_all_data()
+		train_state, train_next_state, train_reward, train_not_done, train_times, train_censor = train_gen.get_initial_data()
+		eval_state, eval_next_state, eval_reward, eval_not_done, eval_times, eval_censor = eval_gen.get_initial_data()
 		eval_state = torch.tensor(eval_state).to(device)
 		isds = self.get_isd(eval_state).detach().cpu().numpy()
 		isds[:,-1] = np.zeros((isds.shape[0],))
@@ -269,15 +269,12 @@ class TC_MTLR(object):
 		predicted_times = evaluator.predict_time_from_curve(evaluator.predict_time_method)
 		# print("predicted_times:")
 		# print(predicted_times)
-		print("mae:", np.mean(np.abs(eval_times - predicted_times)))
 
 		cindex, concordant_pairs, total_pairs = evaluator.concordance(ties="None")
-		ibs = evaluator.integrated_brier_score(num_points=isds.shape[1], IPCW_weighted=True, draw_figure=False)
+		ibs = evaluator.integrated_brier_score(num_points=isds.shape[1], IPCW_weighted=False, draw_figure=False)
 		mae_uncensored = evaluator.mae(method='Uncensored')
-		print("mae_uncensored:", mae_uncensored)
 		mae_hinge = evaluator.mae(method='Hinge')
-		mae_po = evaluator.mae(method='Pseudo_obs', weighted=True)
 
-		return isds, cindex, ibs, mae_uncensored, mae_hinge, mae_po
+		return isds, cindex, ibs, mae_uncensored, mae_hinge
 
 		

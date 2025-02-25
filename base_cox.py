@@ -314,10 +314,12 @@ class BaseSA:
 		where `K` is the horizon.
 		"""
 		logits = self.forward(self.state.params, xs)
+		print("logits.shape:", logits.shape)
 		if self.config.axis == 1:
 			logits = logits.squeeze()  # We call this for the first state.
 		log_hs = jax.nn.log_sigmoid(logits)
 		surv = jnp.exp(jnp.cumsum(log_hs - logits, axis=self.config.axis))
+		print("surv.shape:", surv.shape)
 		return jnp.insert(surv, 0, 1.0, axis=self.config.axis)
 
 	def brier_score(self, h, surv, ts, cs):
@@ -366,32 +368,38 @@ class BaseSA:
 		return path
 
 	def eval(self, train_gen, eval_gen, time_bins, lambda_cox=False):
-		train_state, train_next_state, train_reward, train_not_done, train_times, train_censor = train_gen.get_all_data()
-		eval_state, eval_next_state, eval_reward, eval_not_done, eval_times, eval_censor = eval_gen.get_all_data()
+		train_state, train_next_state, train_reward, train_not_done, train_times, train_censor = train_gen.get_initial_data()
+		eval_state, eval_next_state, eval_reward, eval_not_done, eval_times, eval_censor = eval_gen.get_initial_data()
 		#pads states so they work with the survival curve function
-		seqs = np.concatenate((eval_state.reshape((eval_state.shape[0], 1, eval_state.shape[1])), np.zeros((eval_state.shape[0], self.horizon-1, eval_state.shape[1]))), axis=1) 
+		#seqs = np.concatenate((eval_state.reshape((eval_state.shape[0], 1, eval_state.shape[1])), np.zeros((eval_state.shape[0], self.horizon-1, eval_state.shape[1]))), axis=1) 
+		if lambda_cox:
+			seqs = eval_state
+		else:
+			seqs = np.concatenate((eval_state.reshape((eval_state.shape[0], 1, eval_state.shape[1])), np.full((eval_state.shape[0], self.horizon-1, eval_state.shape[1]), 0)), axis=1) 
+		# print("seqs.shape:", seqs.shape)
 		isds = np.asarray(self.survival_curve(seqs))
 		if not lambda_cox:
 			isds = isds[:, 0] #only take the first state in each sequence
 		isds = np.copy(isds)
 		isds[:,-1] = np.zeros((isds.shape[0],)) # set S(K) = 0 so median times aren't more than the largest observed sample
+		# print("isds.shape:", isds.shape)
 		evaluator = SurvivalEvaluator(isds, time_bins, eval_times, ~eval_censor, train_times, train_censor)
 		# print("eval_times:")
 		# print(eval_times)
-		predicted_times = evaluator.predict_time_from_curve(evaluator.predict_time_method)
+		# predicted_times = evaluator.predict_time_from_curve(evaluator.predict_time_method)
 		# print("predicted_times:")
 		# print(predicted_times)
-		print("mae:", np.mean(np.abs(eval_times - predicted_times)))
+		# print("mae:", np.mean(np.abs(eval_times - predicted_times)))
 
 
 		cindex, concordant_pairs, total_pairs = evaluator.concordance(ties="None")
-		ibs = evaluator.integrated_brier_score(num_points=isds.shape[1], IPCW_weighted=True, draw_figure=False)
+		ibs = evaluator.integrated_brier_score(num_points=isds.shape[1], IPCW_weighted=False, draw_figure=False)
+		# print("ibs:", ibs)
 		mae_uncensored = evaluator.mae(method='Uncensored')
-		print("mae_uncensored:", mae_uncensored)
+		# print("mae_uncensored:", mae_uncensored)
 		mae_hinge = evaluator.mae(method='Hinge')
-		mae_po = evaluator.mae(method='Pseudo_obs', weighted=True)
 
-		return isds, cindex, ibs, mae_uncensored, mae_hinge, mae_po
+		return isds, cindex, ibs, mae_uncensored, mae_hinge
 
 	def save(self):
 		output_path = self.output_path
