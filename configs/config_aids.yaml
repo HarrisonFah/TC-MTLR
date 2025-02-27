@@ -36,16 +36,33 @@ num_seqs: [10, 25, 50, 100, 150, 200]
 hyperparams:
   SA:
     names: [learning_rate]
-    vals: [[1.e-1, 1.e-2, 1.e-3, 1.e-4]]
+    vals: [[1.e-1]]
   LambdaSA:
     names: [learning_rate, num_steps]
-    vals: [[1.e-1, 1.e-2, 1.e-3, 1.e-4], [5, 10, 20]] 
+    vals: [[1.e-1], [20]] 
   DeepLambdaSA:
     names: [learning_rate, target_lr, lambda_]
-    vals: [[1.e-1, 1.e-2, 1.e-3, 1.e-4], [5.e-1, 1.e-1, 1.e-2], [0]]
+    vals: [[1.e-1], [5.e-1], [0]]
   MTLR:
     names: [learning_rate, use_quantiles, C1]
-    vals: [[1.e-3, 1.e-4, 1.e-5], [True, False], [1.0, 0.5, 0.1, 0.0]]
+    vals: [[1.e-3], [True], [1.0]]
   TC_MTLR:
     names: [learning_rate, use_quantiles, policy_freq]
-    vals: [[1.e-3, 1.e-4, 1.e-5], [True, False], [1, 5, 10]]
+    vals: [[1.e-3], [False], [5]]
+
+# hyperparams:
+#   SA:
+#     names: [learning_rate]
+#     vals: [[1.e-1, 1.e-2, 1.e-3, 1.e-4]]
+#   LambdaSA:
+#     names: [learning_rate, num_steps]
+#     vals: [[1.e-1, 1.e-2, 1.e-3, 1.e-4], [5, 10, 20]] 
+#   DeepLambdaSA:
+#     names: [learning_rate, target_lr, lambda_]
+#     vals: [[1.e-1, 1.e-2, 1.e-3, 1.e-4], [5.e-1, 1.e-1, 1.e-2], [0]]
+#   MTLR:
+#     names: [learning_rate, use_quantiles, C1]
+#     vals: [[1.e-3, 1.e-4, 1.e-5], [True, False], [1.0, 0.5, 0.1, 0.0]]
+#   TC_MTLR:
+#     names: [learning_rate, use_quantiles, policy_freq]
+#     vals: [[1.e-3, 1.e-4, 1.e-5], [True, False], [1, 5, 10]]

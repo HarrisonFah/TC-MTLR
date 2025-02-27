@@ -135,4 +135,13 @@ def main():
     print(f"\tMean: {np.mean(all_end_ts)}")
     print(f"\tStd. Dev.: {np.std(all_end_ts)}")
 
+    print("Statistics:")
+    print("\tDataset Size:", np.array(seqs).shape[0])
+    print("\tHorizon:", np.array(seqs).shape[1])
+    print("\t# Features:", np.array(seqs).shape[2])
+    print("\tMedian Length:", np.median(ts))
+    print("\tMean Length:", np.mean(ts))
+    print("\tStd. Dev. Length:", np.std(ts))
+    print("\t% Censored:", np.mean(cs)*100)
+
 main()

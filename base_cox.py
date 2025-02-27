@@ -122,6 +122,7 @@ class BaseSA:
 				return out
 
 		elif arch_type == 'transformer':
+			print("transformer")
 			def forward_fn(x):
 				ts_transformer = TSTransformer(**arch_kwargs)
 				x = ts_transformer(x)
@@ -314,12 +315,12 @@ class BaseSA:
 		where `K` is the horizon.
 		"""
 		logits = self.forward(self.state.params, xs)
-		print("logits.shape:", logits.shape)
+		# print("logits.shape:", logits.shape)
 		if self.config.axis == 1:
 			logits = logits.squeeze()  # We call this for the first state.
 		log_hs = jax.nn.log_sigmoid(logits)
 		surv = jnp.exp(jnp.cumsum(log_hs - logits, axis=self.config.axis))
-		print("surv.shape:", surv.shape)
+		# print("surv.shape:", surv.shape)
 		return jnp.insert(surv, 0, 1.0, axis=self.config.axis)
 
 	def brier_score(self, h, surv, ts, cs):

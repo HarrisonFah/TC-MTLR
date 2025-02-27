@@ -5,20 +5,28 @@ learning_rate: .1
 use_quantiles: False #used for mtlr quantile time bins
 log_interval: 1000
 weight_decay: 1.e-4
-num_epochs: 100
+num_epochs: 1000
 output_file: Results/{}/
 landmark: True
 target_lr: .5
 layer_size: 16
 num_hidden: 1
 arch:
-  type: linear
+  type: transformer
   arch_kwargs:
     hidden_size: 16
     seq_len: 100  # Has to be the same as the horizon
     output_dim: 8
     num_layers: 1
     dropout: 0.05
+# arch:
+#   type: linear
+#   arch_kwargs:
+#     hidden_size: 16
+#     seq_len: 100  # Has to be the same as the horizon
+#     output_dim: 8
+#     num_layers: 1
+#     dropout: 0.05
 
 preprocessed_data: False
 dataset_kwargs:
@@ -31,38 +39,39 @@ num_steps: 5
 verbose: False
 num_trials: 5
 
-num_seqs: [None]
-
-# hyperparams:
-#   SA:
-#     names: [learning_rate]
-#     vals: [[1.e-1]]
-#   LambdaSA:
-#     names: [learning_rate, num_steps]
-#     vals: [[1.e-1], [5]] 
-#   DeepLambdaSA:
-#     names: [learning_rate, target_lr, lambda_]
-#     vals: [[1.e-1], [1.e-2], [0]]
-#   MTLR:
-#     names: [learning_rate, use_quantiles, C1]
-#     vals: [[1.e-3], [True], [1.0]]
-#   TC_MTLR:
-#     names: [learning_rate, use_quantiles, policy_freq]
-#     vals: [[1.e-3], [True], [5]]
+num_seqs: [1000]
+#num_seqs: []
 
 hyperparams:
   SA:
     names: [learning_rate]
-    vals: [[1.e-1, 1.e-2, 1.e-3, 1.e-4]]
+    vals: [[1.e-2]]
   LambdaSA:
     names: [learning_rate, num_steps]
-    vals: [[1.e-1, 1.e-2, 1.e-3, 1.e-4], [5, 10, 20]] 
+    vals: [[1.e-2], [10]] 
   DeepLambdaSA:
     names: [learning_rate, target_lr, lambda_]
-    vals: [[1.e-1, 1.e-2, 1.e-3, 1.e-4], [1.e-2, 1.e-3, 1.e-4], [0]]
+    vals: [[1.e-2], [5.e-1], [0, 0.9, 0.95]]
   MTLR:
     names: [learning_rate, use_quantiles, C1]
-    vals: [[1.e-3, 1.e-4, 1.e-5], [True, False], [1.0, 0.5, 0.1, 0.0]]
+    vals: [[1.e-4], [True], [1.0]]
   TC_MTLR:
     names: [learning_rate, use_quantiles, policy_freq]
-    vals: [[1.e-3, 1.e-4, 1.e-5], [True, False], [1, 5, 10]]
+    vals: [[1.e-4], [True], [10]]
+
+# hyperparams:
+#   SA:
+#     names: [learning_rate]
+#     vals: [[1.e-1, 1.e-2, 1.e-3]]
+#   LambdaSA:
+#     names: [learning_rate, num_steps]
+#     vals: [[1.e-2], [10]] 
+#   DeepLambdaSA:
+#     names: [learning_rate, target_lr, lambda_]
+#     vals: [[1.e-1, 1.e-2, 1.e-3], [5.e-1], [0, 0.9, 0.95]]
+#   MTLR:
+#     names: [learning_rate, use_quantiles, C1]
+#     vals: [[1.e-3, 1.e-4, 1.e-5], [True, False], [1.0]]
+#   TC_MTLR:
+#     names: [learning_rate, use_quantiles, policy_freq]
+#     vals: [[1.e-3, 1.e-4, 1.e-5], [True, False], [10]]

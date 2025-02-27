@@ -83,13 +83,14 @@ def main():
     #iterate through all rows to build sequence data
     for index, row in df.iterrows():
         current_id = int(row['unit_number'])
-        print(f"Index:{index}, ID:{current_id}")
         #if reached a new case, save the previous sequence
         if index > 0 and current_id != prev_id:
+            print(f"Index:{index}, ID:{current_id}")
             seqs.append(seq)
             cs.append(c)
             ts.append(len(seq))
             rs.append(r)
+            seq_t = [i for i in range(len(seq)-1, -1, -1)]
             seqs_ts.append(seq_t)
             seq = []
             c = -1
@@ -98,9 +99,8 @@ def main():
             seq_t = []
         state = row[state_features].tolist()
         seq.append(state)
-        #if patient is alive they are censored
         r.append(1)
-        seq_t.append(int(row['RUL']))
+        #seq_t.append(int(row['RUL']))
         prev_id = current_id
         prev_time = int(row['time_in_cycles'])
         c = row['censored']
@@ -109,6 +109,7 @@ def main():
     cs.append(c)
     ts.append(len(seq)-1)
     rs.append(r)
+    seq_t = [i for i in range(len(seq)-1, -1, -1)]
     seqs_ts.append(seq_t)
 
     #pads arrays with zeros so they all have same length
@@ -117,6 +118,7 @@ def main():
         rs[seq_idx] += [0 for state in range(missing_states)]
         seqs_ts[seq_idx] += [0 for state in range(missing_states)]
         seqs[seq_idx] = seqs[seq_idx] + [[0 for feature in range(len(state_features))] for state in range(missing_states)]
+
     nasa_dict = {
         'seqs': np.array(seqs),
         'cs': np.array(cs),
@@ -127,5 +129,15 @@ def main():
     }
     with open(output_path, 'wb') as f:
         pickle.dump(nasa_dict, f)
+
+    print("Statistics:")
+    print("\tDataset Size:", np.array(seqs).shape[0])
+    print("\tHorizon:", np.array(seqs).shape[1])
+    print("\t# Features:", np.array(seqs).shape[2])
+    print("\tMedian Length:", np.median(ts))
+    print("\tMean Length:", np.mean(ts))
+    print("\tStd. Dev. Length:", np.std(ts))
+    print("\t% Censored:", np.mean(cs)*100)
+
 
 main()

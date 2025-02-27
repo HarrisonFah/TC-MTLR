@@ -76,12 +76,12 @@ def main():
     #So we have to reverse the sequences and update the time-to-events
     for index, row in df.iterrows():
         current_id = row['userid']
-        print(f"Index:{index}, ID:{current_id}")
         current_date = datetime.datetime.fromisoformat(row['timestamp'].rstrip('Z'))
         current_month = current_date.month
         current_year = current_date.year
         #if reached the next user, save the previous sequence
         if index > 0 and current_id != prev_id:
+            print(f"Index:{index}, ID:{current_id}")
             if len(seq) > 1:
                 seq.reverse()
                 seqs.append(seq)
@@ -89,7 +89,6 @@ def main():
                 ts.append(len(seq))
                 r.reverse()
                 rs.append(r)
-                seq_t.reverse()
                 for seq_idx in range(len(seq_t)):
                     seq_t[seq_idx] = diff_month(prev_date, end_date) - seq_t[seq_idx]
                 seqs_ts.append(seq_t)
@@ -151,8 +150,13 @@ def main():
         rs[seq_idx] += [0 for state in range(missing_states)]
         seqs_ts[seq_idx] += [0 for state in range(missing_states)]
         seqs[seq_idx] = seqs[seq_idx] + [[0 for feature in range(len(state_features))] for state in range(missing_states)]
+    #normalizes features
+    seqs = np.array(seqs)
+    means = np.mean(seqs.reshape((-1,seqs.shape[2])), axis=0)
+    stds = np.std(seqs.reshape((-1,seqs.shape[2])), axis=0)
+    seqs = (seqs - means) / stds
     fm_dict = {
-        'seqs': np.array(seqs),
+        'seqs': seqs,
         'cs': np.array(cs),
         'ts': np.array(ts),
         'cols': state_features,
@@ -169,5 +173,14 @@ def main():
     print(f"\tMedian: {np.median(all_rs)}")
     print(f"\tMean: {np.mean(all_rs)}")
     print(f"\tStd. Dev.: {np.std(all_rs)}")
+
+    print("Statistics:")
+    print("\tDataset Size:", np.array(seqs).shape[0])
+    print("\tHorizon:", np.array(seqs).shape[1])
+    print("\t# Features:", np.array(seqs).shape[2])
+    print("\tMedian Length:", np.median(ts))
+    print("\tMean Length:", np.mean(ts))
+    print("\tStd. Dev. Length:", np.std(ts))
+    print("\t% Censored:", np.mean(cs)*100)
 
 main()

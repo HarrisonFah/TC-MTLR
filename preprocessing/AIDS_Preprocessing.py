@@ -135,8 +135,6 @@ def main():
     with open(output_path, 'wb') as f:
         pickle.dump(aids_dict, f) 
 
-    print("Horizon:", horizon)
-
     #compute statistics of time between states
     print("\nStatistics of Time Between States:")
     print(f"\tMinimum: {np.min(all_rs)}")
@@ -152,5 +150,14 @@ def main():
     print(f"\tMedian: {np.median(all_end_ts)}")
     print(f"\tMean: {np.mean(all_end_ts)}")
     print(f"\tStd. Dev.: {np.std(all_end_ts)}")
+
+    print("Statistics:")
+    print("\tDataset Size:", np.array(seqs).shape[0])
+    print("\tHorizon:", np.array(seqs).shape[1])
+    print("\t# Features:", np.array(seqs).shape[2])
+    print("\tMedian Length:", np.median(ts))
+    print("\tMean Length:", np.mean(ts))
+    print("\tStd. Dev. Length:", np.std(ts))
+    print("\t% Censored:", np.mean(cs)*100)
 
 main()

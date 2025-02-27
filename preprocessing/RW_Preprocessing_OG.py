@@ -76,6 +76,11 @@ rw_dict = {
 with open(output_path, 'wb') as f:
     pickle.dump(rw_dict, f) 
 
-print(f"Censor Count (%): {cs.sum()} ({cs.sum()/n_samples*100})")
-print(f"Median Length: {np.median(seqs_ts[:,0])}")
-print(f"Mean Length (std.dev): {np.mean(seqs_ts[:,0])} ({np.std(seqs_ts[:,0])})")
+print("Statistics:")
+print("\tDataset Size:", np.array(seqs).shape[0])
+print("\tHorizon:", np.array(seqs).shape[1])
+print("\t# Features:", np.array(seqs).shape[2])
+print("\tMedian Length:", np.median(ts))
+print("\tMean Length:", np.mean(ts))
+print("\tStd. Dev. Length:", np.std(ts))
+print("\t% Censored:", np.mean(cs)*100)

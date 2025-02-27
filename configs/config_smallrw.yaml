@@ -36,16 +36,16 @@ num_seqs: [10, 25, 50, 100, 150, 200]
 hyperparams:
   SA:
     names: [learning_rate]
-    vals: [[1.e-1]]
+    vals: [[1.e-2]]
   LambdaSA:
     names: [learning_rate, num_steps]
-    vals: [[1.e-1], [5]] 
+    vals: [[1.e-3], [10]] 
   DeepLambdaSA:
     names: [learning_rate, target_lr, lambda_]
     vals: [[1.e-1], [5.e-1], [0]]
   MTLR:
     names: [learning_rate, use_quantiles, C1]
-    vals: [[1.e-3], [True], [1.0]]
+    vals: [[1.e-3], [True], [0.1]]
   TC_MTLR:
     names: [learning_rate, use_quantiles, policy_freq]
     vals: [[1.e-3], [True], [5]]

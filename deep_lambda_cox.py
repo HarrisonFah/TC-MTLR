@@ -211,6 +211,9 @@ class DeepLambdaSA(BaseSA):
                                                                     val_size=val_size,
                                                                     test_size=test_size,
                                                                     num_train_seqs=num_train_seqs)
+        print("X_train.shape:", X_train.shape)
+        # print("X_train:")
+        # print(X_train)
         subkey = self._next_rng_key()
         train_gen = data_manager(X=X_train, h_ws=hws_train,
                                  ts=ts_train, cs=cs_train,

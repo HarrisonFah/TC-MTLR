@@ -49,7 +49,7 @@ if __name__ == '__main__':
     
     for metric in METRICS.keys():
         metric_alt = METRICS[metric] #name of metric in results file
-        plt.figure(figsize=(10, 7))
+        plt.figure(figsize=(15, 10.5))
         plt.subplots_adjust(right=0.77)
         for alg in ALGS.keys():
             alg_alt =  ALGS[alg] #name of algorithm in results file
@@ -64,11 +64,12 @@ if __name__ == '__main__':
             #print(means)
             stds = np.std(alg_results, axis=1)
             plt.plot(SEQS_LIST, means, label=alg, color=ALG_COLORS[alg], linestyle='dashed')
-            plt.errorbar(SEQS_LIST, means, yerr=stds, color=ALG_COLORS[alg], fmt="o", markersize=4, linewidth=2, capsize=2, capthick=2, alpha=0.75)
-        plt.xlabel('# Training Sequences', fontsize=15)
-        plt.ylabel(metric, fontsize=15)
-        plt.xticks([50, 100, 150, 200])
+            plt.errorbar(SEQS_LIST, means, yerr=stds, color=ALG_COLORS[alg], fmt="o", markersize=4, linewidth=2, capsize=4, capthick=2, alpha=0.5)
+        plt.xlabel('# Training Sequences', fontsize=30)
+        plt.ylabel(metric, fontsize=30)
+        plt.xticks([50, 100, 150, 200], fontsize=20)
+        plt.yticks(fontsize=20)
         plt.grid()
-        plt.legend(loc='center left', bbox_to_anchor=(1.0, 0.5), fontsize=15)
-        plt.title(f'{args.name}', fontsize=15)
+        plt.legend(loc='center left', bbox_to_anchor=(1.0, 0.5), fontsize=22)
+        plt.title(f'{args.name}', fontsize=30)
         plt.show()

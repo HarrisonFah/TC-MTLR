@@ -278,6 +278,7 @@ class MTLR(nn.Module):
 		# print(predicted_times)
 
 		cindex, concordant_pairs, total_pairs = evaluator.concordance(ties="None")
+		print("isds.shape:", isds.shape)
 		ibs = evaluator.integrated_brier_score(num_points=isds.shape[1], IPCW_weighted=False, draw_figure=False)
 		mae_uncensored = evaluator.mae(method='Uncensored')
 		mae_hinge = evaluator.mae(method='Hinge')

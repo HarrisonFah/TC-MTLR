@@ -85,18 +85,23 @@ if __name__ == '__main__':
         os.makedirs(output_file)
     output_file = os.path.join(output_file, 'results.json')
     config['output_file'] = output_file
+    if len(config['num_seqs']) > 0:
+        num_seqs_list = config['num_seqs']
+    else:
+        num_seqs_list = [None]
 
     try:
         results_dict = {}
-        for num_seqs in config['num_seqs']:
+        for num_seqs in num_seqs_list:
             print(f'Number of Sequences: {num_seqs}')
             results_dict[num_seqs] = {}
             for trial in range(config['num_trials']):
                 seed = randint(1, 1000)
                 print(f'\tTrial: {trial}')
                 results_dict[num_seqs][trial] = {}
-                for type_agent in ["SA", "LambdaSA", "DeepLambdaSA", "TC_MTLR", "MTLR"]:
-                # for type_agent in ["SA", "LambdaSA", "DeepLambdaSA"]:
+                #for type_agent in ["SA", "LambdaSA", "DeepLambdaSA", "TC_MTLR", "MTLR"]:
+                #for type_agent in ["SA", "DeepLambdaSA", "TC_MTLR", "MTLR"]:
+                for type_agent in ["DeepLambdaSA"]:
                     print(f'\t\tAgent: {type_agent}')
                     train_gen = None
                     val_gen = None
