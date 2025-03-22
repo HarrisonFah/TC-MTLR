@@ -122,7 +122,6 @@ class BaseSA:
 				return out
 
 		elif arch_type == 'transformer':
-			print("transformer")
 			def forward_fn(x):
 				ts_transformer = TSTransformer(**arch_kwargs)
 				x = ts_transformer(x)
@@ -385,16 +384,12 @@ class BaseSA:
 		isds[:,-1] = np.zeros((isds.shape[0],)) # set S(K) = 0 so median times aren't more than the largest observed sample
 		# print("isds.shape:", isds.shape)
 		evaluator = SurvivalEvaluator(isds, time_bins, eval_times, ~eval_censor, train_times, train_censor)
-		# print("eval_times:")
-		# print(eval_times)
-		# predicted_times = evaluator.predict_time_from_curve(evaluator.predict_time_method)
-		# print("predicted_times:")
-		# print(predicted_times)
+		predicted_times = evaluator.predict_time_from_curve(evaluator.predict_time_method)
 		# print("mae:", np.mean(np.abs(eval_times - predicted_times)))
 
 
 		cindex, concordant_pairs, total_pairs = evaluator.concordance(ties="None")
-		ibs = evaluator.integrated_brier_score(num_points=isds.shape[1], IPCW_weighted=False, draw_figure=False)
+		ibs = evaluator.integrated_brier_score(num_points=isds.shape[1], IPCW_weighted=True, draw_figure=False)
 		# print("ibs:", ibs)
 		mae_uncensored = evaluator.mae(method='Uncensored')
 		# print("mae_uncensored:", mae_uncensored)

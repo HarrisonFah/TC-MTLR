@@ -24,18 +24,25 @@ output_path = '../data/LastFM.pkl'
 
 columns = ['userid', 'timestamp', 'musicbrainz-artist-id', 'artist-name', 'musicbrainz-track-id', 'track-name']
 
-state_features = ['top_song', 'top_artist', 'num_songs', 'num_unique']
+state_features = ['top_song', 'num_top_song', 'top_artist', 'num_top_artist', 'num_songs', 'num_unique_songs', 'num_unique_artists']
 
 def diff_month(d1, d2):
     return abs((d1.year - d2.year) * 12 + d1.month - d2.month)
 
 #returns the most frequent song/artist, the total number of songs listened to, and the number of unique songs
-def get_features(song_counts):
-    sorted_counts = sorted(song_counts, key=song_counts.get, reverse=True)
-    top_song, top_artist = sorted_counts[0]
+def get_features(song_counts, artist_counts):
+    sorted_song_counts = sorted(song_counts, key=song_counts.get, reverse=True)
+    top_song = sorted_song_counts[0]
+    num_top_song = song_counts[top_song]
+
+    sorted_artist_counts = sorted(artist_counts, key=artist_counts.get, reverse=True)
+    top_artist = sorted_artist_counts[0]
+    num_top_artist = artist_counts[top_artist]
+
     num_songs = sum(song_counts.values())
-    num_unique = len(song_counts.keys())
-    return (top_song, top_artist, num_songs, num_unique)
+    num_unique_songs = len(song_counts.keys())
+    num_unique_artists = len(artist_counts.keys())
+    return (top_song, num_top_song, top_artist, num_top_artist, num_songs, num_unique_songs, num_unique_artists)
 
 def main():
     df = pd.read_csv(input_path, sep='\t', header=None, on_bad_lines='skip')
@@ -69,7 +76,8 @@ def main():
     prev_year = 0
     end_date = None
 
-    song_counts = {} #stores pairs of ((artist, song): count)
+    song_counts = {} #stores pairs of (song: count)
+    artist_counts = {} #stores pairs of (artist: count)
 
     #Iterate through all rows to build sequence data
     #Note that date is in reverse order (starts with most recent date)
@@ -105,7 +113,7 @@ def main():
 
         #if reached the next month, calculate features and times
         if index > 0 and end_date is not None and (current_month != prev_month or current_year != prev_year):
-            state = get_features(song_counts)
+            state = get_features(song_counts, artist_counts)
             seq.append(state)
             r.append(diff_month(current_date, prev_date))
             all_rs.append(diff_month(current_date, prev_date))
@@ -113,11 +121,16 @@ def main():
             song_counts = {}
         
         artist_code = encoded_artists[index] #artist_encoder.transform(row['musicbrainz-artist-id'])
+        try:
+            artist_counts[artist_code] += 1
+        except:
+            artist_counts[artist_code] = 1
+
         song_code = encoded_songs[index] #song_encoder.transform(row['musicbrainz-track-id'])
         try:
-            song_counts[(artist_code, song_code)] += 1
+            song_counts[song_code] += 1
         except:
-            song_counts[(artist_code, song_code)] = 1
+            song_counts[song_code] = 1
         #if listened to songs in june 2009 then censored
         if c is None:
             if current_year == 2009 and current_month == 6:

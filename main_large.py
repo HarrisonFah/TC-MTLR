@@ -70,7 +70,8 @@ if __name__ == '__main__':
                 seed = randint(1, 1000)
                 print(f'\tTrial: {trial}')
                 results_dict[num_seqs][trial] = {}
-                for type_agent in ["SA", "LambdaSA", "DeepLambdaSA", "TC_MTLR", "MTLR"]:
+                #for type_agent in ["SA", "LambdaSA", "DeepLambdaSA", "TC_MTLR", "MTLR"]:
+                for type_agent in ["SA", "DeepLambdaSA", "TC_MTLR", "MTLR"]:
                     print(f'\t\tAgent: {type_agent}')
                     train_gen = None
                     val_gen = None
@@ -78,11 +79,6 @@ if __name__ == '__main__':
                     X_train = None
                     ts_train = None
                     cs_train = None
-
-                    top_cindex = -1
-                    top_hyperparams = None
-                    top_agent = None
-                    top_time_bins = None
 
                     hyperparams = config['hyperparams'][type_agent]
                     hyperparam_groups = list(itertools.product(*hyperparams['vals']))
@@ -109,6 +105,7 @@ if __name__ == '__main__':
                         elif type_agent == 'TC_MTLR':
                             agent = TC_MTLR(config, seed)
                         elif type_agent == 'MTLR':
+                            config['lambda_'] = 0
                             agent = MTLR(config, seed)
                         else:
                             raise Exception('Agent type not found')
@@ -129,24 +126,17 @@ if __name__ == '__main__':
                         else:
                             agent.train(train_gen)
 
-                        isds, cindex, ibs, mae_uncensored, mae_hinge = agent.eval(train_gen, val_gen, agent.time_bins, lambda_cox)
-                        if cindex > top_cindex:
-                            top_cindex = cindex
-                            top_hyperparams = hyperparam_vals
-                            top_agent = agent
-                            top_time_bins = agent.time_bins
-
-                    isds, cindex, ibs, mae_uncensored, mae_hinge = top_agent.eval(train_gen, test_gen, top_time_bins, lambda_cox)
-                    results_dict[num_seqs][trial][type_agent] = {
-                                                'hyperparam_names': hyperparams['names'],
-                                                'hyperparam_vals': top_hyperparams,
-                                                'cindex': cindex,
-                                                'ibs': ibs,
-                                                'mae_uncensored': mae_uncensored,
-                                                'mae_hinge': mae_hinge
-                                                }
-                    with open(output_file, 'w') as out:
-                        json.dump(results_dict, out, indent=4)
+                        isds, cindex, ibs, mae_uncensored, mae_hinge = agent.eval(train_gen, test_gen, agent.time_bins, lambda_cox)
+                        results_dict[num_seqs][trial][type_agent + str(config['lambda_'])] = {
+                                                    'hyperparam_names': hyperparams['names'],
+                                                    'hyperparam_vals': hyperparam_vals,
+                                                    'cindex': cindex,
+                                                    'ibs': ibs,
+                                                    'mae_uncensored': mae_uncensored,
+                                                    'mae_hinge': mae_hinge
+                                                    }
+                        with open(output_file, 'w') as out:
+                            json.dump(results_dict, out, indent=4)
                         
     except KeyboardInterrupt:
         gc.collect()

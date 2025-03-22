@@ -271,15 +271,10 @@ class MTLR(nn.Module):
 		time_bins = time_bins.detach().cpu().numpy()
 		time_bins = np.concatenate((time_bins, np.array([time_bins[len(time_bins)-1]+1])))
 		evaluator = SurvivalEvaluator(isds, time_bins, data_test["time"], data_test["event"], data_train["time"], data_train["event"])
-		# print("eval_times:")
-		# print(eval_times)
 		predicted_times = evaluator.predict_time_from_curve(evaluator.predict_time_method)
-		# print("predicted_times:")
-		# print(predicted_times)
 
 		cindex, concordant_pairs, total_pairs = evaluator.concordance(ties="None")
-		print("isds.shape:", isds.shape)
-		ibs = evaluator.integrated_brier_score(num_points=isds.shape[1], IPCW_weighted=False, draw_figure=False)
+		ibs = evaluator.integrated_brier_score(num_points=isds.shape[1], IPCW_weighted=True, draw_figure=False)
 		mae_uncensored = evaluator.mae(method='Uncensored')
 		mae_hinge = evaluator.mae(method='Hinge')
 

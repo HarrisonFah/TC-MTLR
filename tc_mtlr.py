@@ -24,6 +24,8 @@ class ConfigParams:
 	layer_size: int
 	num_hidden: int
 	use_quantiles: bool
+	tau: float
+	lambda_: int
 	log_interval: int
 	weight_decay: float
 	num_epochs: int
@@ -78,8 +80,8 @@ class TC_MTLR(object):
 		config_kwargs,
 		seed,
 		discount=1.0,
-		tau=1.0,
-		policy_freq=10,
+		tau=0.1,
+		policy_freq=1,
 	):
 		self.config = ConfigParams.from_dict(config_kwargs)
 		self.seed = seed
@@ -106,9 +108,10 @@ class TC_MTLR(object):
 		self.layer_size = self.config.layer_size
 		self.num_hidden = self.config.num_hidden
 		self.use_quantiles = self.config.use_quantiles
+		self.tau = self.config.tau
+		self.lambda_ = self.config.lambda_
 
 		self.discount = discount
-		self.tau = tau
 		self.policy_freq = policy_freq
 		self.batch_size = self.config.batch_size
 
@@ -145,7 +148,7 @@ class TC_MTLR(object):
 		sequence_probs = F.softmax(sequence_logits, dim=1)
 		return sequence_probs
 
-	def train_step(self, state, next_state, reward, not_done):
+	def train_step(self, state, next_state, reward, not_done, censors, times):
 		self.total_it += 1
 
 		current_probs = self.get_sequence_probs(self.MTLR_network, state)
@@ -155,7 +158,8 @@ class TC_MTLR(object):
 			next_probs = self.get_sequence_probs(self.MTLR_target, next_state)
 
 			z = self.time_bins
-			bellman = (reward + self.discount * not_done * z).clamp(min(self.time_bins), max(self.time_bins)-(1e-6)) #calculates the bellman value for each time bin
+			bellman = (reward + self.discount * not_done * z) #calculates the bellman value for each time bin
+			bellman = ((1-self.lambda_)*bellman + self.lambda_*(bellman*censors[:, None] + times.repeat((1, bellman.shape[1]))*(~censors[:, None]))).clamp(min(self.time_bins), max(self.time_bins)-(1e-6)) #calculates the bellman value for each time bin
 			buckets = torch.bucketize(bellman, z) #gets the index of time bins that each bellman value falls into
 			l = (buckets - 1).clip(min=0, max=(z.shape[0]-2)) #gets the lower index
 			u = l + 1 #gets the upper index
@@ -189,13 +193,15 @@ class TC_MTLR(object):
 		losses = []
 		for epoch in range(self.config.num_epochs):
 			for batch in train_gen:
-				state, next_state, reward, not_done, _, _ = batch
+				state, next_state, reward, not_done, censor, time = batch
 				state = torch.FloatTensor(state).to(device)
 				next_state = torch.FloatTensor(next_state).to(device)
 				reward = torch.FloatTensor(reward).to(device).reshape((-1,1))
 				not_done = torch.FloatTensor(not_done).to(device).reshape((-1,1))
+				censor = torch.BoolTensor(censor).to(device).reshape((-1))
+				time = torch.FloatTensor(time).to(device).reshape((-1,1))
 
-				loss = self.train_step(state, next_state, reward, not_done)
+				loss = self.train_step(state, next_state, reward, not_done, censor, time)
 
 				# log
 				if epoch % self.config.log_interval == 0 and epoch > 1:
@@ -264,14 +270,10 @@ class TC_MTLR(object):
 		isds = self.get_isd(eval_state).detach().cpu().numpy()
 		isds[:,-1] = np.zeros((isds.shape[0],))
 		evaluator = SurvivalEvaluator(isds, self.time_bins, eval_times, ~eval_censor, train_times, train_censor)
-		print("eval_times:")
-		print(eval_times)
 		predicted_times = evaluator.predict_time_from_curve(evaluator.predict_time_method)
-		print("predicted_times:")
-		print(predicted_times)
 
 		cindex, concordant_pairs, total_pairs = evaluator.concordance(ties="None")
-		ibs = evaluator.integrated_brier_score(num_points=isds.shape[1], IPCW_weighted=False, draw_figure=False)
+		ibs = evaluator.integrated_brier_score(num_points=isds.shape[1], IPCW_weighted=True, draw_figure=False)
 		mae_uncensored = evaluator.mae(method='Uncensored')
 		mae_hinge = evaluator.mae(method='Hinge')
 

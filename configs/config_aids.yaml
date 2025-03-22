@@ -4,7 +4,7 @@ batch_size: 128
 learning_rate: .1
 use_quantiles: False #used for mtlr quantile time bins
 log_interval: 1000
-weight_decay: 1.e-4
+weight_decay: 0.4
 num_epochs: 100
 output_file: Results/{}/
 landmark: True
@@ -39,16 +39,16 @@ hyperparams:
     vals: [[1.e-1]]
   LambdaSA:
     names: [learning_rate, num_steps]
-    vals: [[1.e-1], [20]] 
+    vals: [[1.e-1], [5]] 
   DeepLambdaSA:
     names: [learning_rate, target_lr, lambda_]
-    vals: [[1.e-1], [5.e-1], [0]]
+    vals: [[1.e-1], [1.e-1], [0]]
   MTLR:
     names: [learning_rate, use_quantiles, C1]
-    vals: [[1.e-3], [True], [1.0]]
+    vals: [[1.e-3], [False], [0.0]]
   TC_MTLR:
-    names: [learning_rate, use_quantiles, policy_freq]
-    vals: [[1.e-3], [False], [5]]
+    names: [learning_rate, use_quantiles, tau, lambda_]
+    vals: [[1.e-3], [False], [5.e-1], [0]]
 
 # hyperparams:
 #   SA:
@@ -59,10 +59,10 @@ hyperparams:
 #     vals: [[1.e-1, 1.e-2, 1.e-3, 1.e-4], [5, 10, 20]] 
 #   DeepLambdaSA:
 #     names: [learning_rate, target_lr, lambda_]
-#     vals: [[1.e-1, 1.e-2, 1.e-3, 1.e-4], [5.e-1, 1.e-1, 1.e-2], [0]]
+#     vals: [[1.e-1, 1.e-2, 1.e-3, 1.e-4], [1, 5.e-1, 1.e-1], [0]]
 #   MTLR:
 #     names: [learning_rate, use_quantiles, C1]
-#     vals: [[1.e-3, 1.e-4, 1.e-5], [True, False], [1.0, 0.5, 0.1, 0.0]]
+#     vals: [[1.e-3, 1.e-4, 1.e-5], [True, False], [1.0, 0.1, 0.0]]
 #   TC_MTLR:
-#     names: [learning_rate, use_quantiles, policy_freq]
-#     vals: [[1.e-3, 1.e-4, 1.e-5], [True, False], [1, 5, 10]]
+#     names: [learning_rate, use_quantiles, tau, lambda_]
+#     vals: [[1.e-3, 1.e-4, 1.e-5], [True, False], [1, 5.e-1, 1.e-1], [0]]

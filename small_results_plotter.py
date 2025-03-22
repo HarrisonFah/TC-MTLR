@@ -46,11 +46,17 @@ if __name__ == '__main__':
         for seq in SEQS_LIST:
             for trial in range(NUM_TRIALS):
                 print(f'\tSeq: {seq}, Trial: {trial}, Values: {results_dict[str(seq)][str(trial)][alg_alt]["hyperparam_vals"]}')
-    
+
+    metric_plot_idxs = {'C-Index': (0,0),
+                        'IBS': (0,1),
+                        'MAE-Uncensored': (1,0),
+                        'MAE-Hinge': (1,1)
+                        }
+    fig, ax = plt.subplots(2, 2, figsize=(15,13))
     for metric in METRICS.keys():
         metric_alt = METRICS[metric] #name of metric in results file
-        plt.figure(figsize=(15, 10.5))
-        plt.subplots_adjust(right=0.77)
+        metric_plot_idx = metric_plot_idxs[metric]
+        # plt.subplots_adjust(right=0.77)
         for alg in ALGS.keys():
             alg_alt =  ALGS[alg] #name of algorithm in results file
             alg_results = [[] for _ in range(len(SEQS_LIST))]
@@ -63,13 +69,18 @@ if __name__ == '__main__':
             means = np.mean(alg_results, axis=1)
             #print(means)
             stds = np.std(alg_results, axis=1)
-            plt.plot(SEQS_LIST, means, label=alg, color=ALG_COLORS[alg], linestyle='dashed')
-            plt.errorbar(SEQS_LIST, means, yerr=stds, color=ALG_COLORS[alg], fmt="o", markersize=4, linewidth=2, capsize=4, capthick=2, alpha=0.5)
-        plt.xlabel('# Training Sequences', fontsize=30)
-        plt.ylabel(metric, fontsize=30)
-        plt.xticks([50, 100, 150, 200], fontsize=20)
-        plt.yticks(fontsize=20)
-        plt.grid()
-        plt.legend(loc='center left', bbox_to_anchor=(1.0, 0.5), fontsize=22)
-        plt.title(f'{args.name}', fontsize=30)
-        plt.show()
+            ax[metric_plot_idx].plot(SEQS_LIST, means, label=alg, color=ALG_COLORS[alg], linestyle='dashed')
+            ax[metric_plot_idx].errorbar(SEQS_LIST, means, yerr=stds, color=ALG_COLORS[alg], fmt="o", markersize=4, linewidth=2, capsize=4, capthick=2, alpha=0.5)
+        ax[metric_plot_idx].set_xlabel('# Training Sequences', fontsize=15)
+        ax[metric_plot_idx].set_ylabel(metric, fontsize=15)
+        ax[metric_plot_idx].set_xticks([50, 100, 150, 200])
+        ax[metric_plot_idx].tick_params(axis='x', labelsize=15)
+        ax[metric_plot_idx].tick_params(axis='y', labelsize=15)
+        # ax[metric_plot_idx].set_yticks(fontsize=20)
+        ax[metric_plot_idx].grid()
+        # plt
+        # plt.title(f'{args.name}', fontsize=30)
+        # plt.show()
+    ax[0,0].legend(loc='lower right', fontsize=15)
+    fig.suptitle(args.name, fontsize=30)
+    plt.show()

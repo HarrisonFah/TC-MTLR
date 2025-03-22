@@ -1,4 +1,5 @@
 import numpy as np
+import matplotlib.pyplot as plt
 import pickle
 from scipy.special import expit as sigmoid
 
@@ -30,32 +31,36 @@ def make_generator(mat, sigma, sigma0, thetas, bias, rng):
             seqs[i, 0] = np.append(sigma0 * rng.normal(size=n_dims), 1)
             ts[i] = 1
             for j in range(0, horizon):
-                p = sigmoid(np.dot(seqs[i, j, :-1], thetas) + bias)
-                if rng.uniform() < p:
-                    break
                 ts[i] += 1
+                # seqs[i, j + 1] = np.append(
+                #     np.dot(mat, seqs[i, j + 1, :-1]) + sigma * rng.normal(size=n_dims),
+                #     1,
+                # )
                 seqs[i, j + 1] = np.append(
-                    np.dot(mat, seqs[i, j + 1, :-1]) + sigma * rng.normal(size=n_dims),
+                    np.dot(mat, seqs[i, j, :-1]) + sigma * rng.normal(size=n_dims),
                     1,
                 )
                 rs[i, j] = 1
                 seqs_ts[i,:j+1] += 1
+                p = sigmoid(np.dot(seqs[i, j, :-1], thetas) + bias)
+                if rng.uniform() < p:
+                    break
             if ts[i] > horizon:
                 ts[i] = horizon
                 cs[i] = True
         return (seqs, ts, cs, rs, seqs_ts)
     return gen
 
-output_path = '../data/LargeRW.pkl'
+output_path = '../data/SmallRW.pkl'
 
 rng = np.random.default_rng(seed=0)
-n_dims = 50 #20 for Small, 50 for Large
+n_dims = 20 #20 for Small, 50 for Large
 n_samples = 10000
-horizon = 99 #10 for Small, 99 for Large
+horizon = 10 #10 for Small, 99 for Large
 
 # Churn parameters.
 thetas = rng.normal(size=n_dims)
-bias = -8 #-3 for Small, -8 for Large
+bias = 0 #0 for Small, -8 for Large
 
 # Transition dynamics.
 mat = 1.0 * np.eye(n_dims)
@@ -84,3 +89,8 @@ print("\tMedian Length:", np.median(ts))
 print("\tMean Length:", np.mean(ts))
 print("\tStd. Dev. Length:", np.std(ts))
 print("\t% Censored:", np.mean(cs)*100)
+
+#for idx in range(len(seqs)):
+for idx in range(100):
+    plt.plot(np.arange(ts[idx]), np.mean(seqs[idx,:ts[idx]], axis=1), alpha=0.1)
+plt.show()
