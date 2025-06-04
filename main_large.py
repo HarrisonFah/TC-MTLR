@@ -126,14 +126,15 @@ if __name__ == '__main__':
                         else:
                             agent.train(train_gen)
 
-                        isds, cindex, ibs, mae_uncensored, mae_hinge = agent.eval(train_gen, test_gen, agent.time_bins, lambda_cox)
+                        isds, cindex, ibs, mae_uncensored, mae_hinge, maepo = agent.eval(train_gen, test_gen, agent.time_bins, lambda_cox)
                         results_dict[num_seqs][trial][type_agent + str(config['lambda_'])] = {
                                                     'hyperparam_names': hyperparams['names'],
                                                     'hyperparam_vals': hyperparam_vals,
                                                     'cindex': cindex,
                                                     'ibs': ibs,
                                                     'mae_uncensored': mae_uncensored,
-                                                    'mae_hinge': mae_hinge
+                                                    'mae_hinge': mae_hinge,
+                                                    'mae_po': maepo
                                                     }
                         with open(output_file, 'w') as out:
                             json.dump(results_dict, out, indent=4)

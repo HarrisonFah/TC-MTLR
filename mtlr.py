@@ -270,6 +270,7 @@ class MTLR(nn.Module):
 		isds[:,isds.shape[1]-1] = np.zeros((isds.shape[0]))
 		time_bins = time_bins.detach().cpu().numpy()
 		time_bins = np.concatenate((time_bins, np.array([time_bins[len(time_bins)-1]+1])))
+
 		evaluator = SurvivalEvaluator(isds, time_bins, data_test["time"], data_test["event"], data_train["time"], data_train["event"])
 		predicted_times = evaluator.predict_time_from_curve(evaluator.predict_time_method)
 
@@ -277,8 +278,9 @@ class MTLR(nn.Module):
 		ibs = evaluator.integrated_brier_score(num_points=isds.shape[1], IPCW_weighted=True, draw_figure=False)
 		mae_uncensored = evaluator.mae(method='Uncensored')
 		mae_hinge = evaluator.mae(method='Hinge')
+		maepo = evaluator.mae(method='Pseudo_obs', weighted=True, truncated_time=np.max(eval_times))
 
-		return isds, cindex, ibs, mae_uncensored, mae_hinge
+		return isds, cindex, ibs, mae_uncensored, mae_hinge, maepo
 
 
 def masked_logsumexp(x: torch.Tensor,

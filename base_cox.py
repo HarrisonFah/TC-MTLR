@@ -383,7 +383,7 @@ class BaseSA:
 		isds = np.copy(isds)
 		isds[:,-1] = np.zeros((isds.shape[0],)) # set S(K) = 0 so median times aren't more than the largest observed sample
 		# print("isds.shape:", isds.shape)
-		evaluator = SurvivalEvaluator(isds, time_bins, eval_times, ~eval_censor, train_times, train_censor)
+		evaluator = SurvivalEvaluator(isds, time_bins, eval_times, ~eval_censor, train_times, ~train_censor)
 		predicted_times = evaluator.predict_time_from_curve(evaluator.predict_time_method)
 		# print("mae:", np.mean(np.abs(eval_times - predicted_times)))
 
@@ -394,8 +394,9 @@ class BaseSA:
 		mae_uncensored = evaluator.mae(method='Uncensored')
 		# print("mae_uncensored:", mae_uncensored)
 		mae_hinge = evaluator.mae(method='Hinge')
+		maepo = evaluator.mae(method='Pseudo_obs', weighted=True, truncated_time=np.max(eval_times))
 
-		return isds, cindex, ibs, mae_uncensored, mae_hinge
+		return isds, cindex, ibs, mae_uncensored, mae_hinge, maepo
 
 	def save(self):
 		output_path = self.output_path

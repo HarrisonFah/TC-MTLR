@@ -7,6 +7,7 @@ import argparse
 import gc
 import itertools
 from random import randint
+import time
 
 from lambda_cox import LambdaSA
 from baseline_cox import SA
@@ -80,6 +81,7 @@ if __name__ == '__main__':
                     cs_train = None
 
                     top_cindex = -1
+                    top_mae = float('inf')
                     top_hyperparams = None
                     top_agent = None
                     top_time_bins = None
@@ -124,29 +126,33 @@ if __name__ == '__main__':
                         else:
                             agent.init_networks(train_gen, val_gen, test_gen)
                         
+                        start_time = time.time()
                         if type_agent == 'LambdaSA':
                             agent.train(X_train, ts_train, cs_train)
                         else:
                             agent.train(train_gen)
+                        end_time = time.time()
+                        print("Elapsed Time (s):", end_time - start_time)
 
-                        isds, cindex, ibs, mae_uncensored, mae_hinge = agent.eval(train_gen, val_gen, agent.time_bins, lambda_cox)
+                        isds, cindex, ibs, mae_uncensored, mae_hinge, maepo = agent.eval(train_gen, val_gen, agent.time_bins, lambda_cox)
                         if cindex > top_cindex:
                             top_cindex = cindex
                             top_hyperparams = hyperparam_vals
                             top_agent = agent
                             top_time_bins = agent.time_bins
 
-                    isds, cindex, ibs, mae_uncensored, mae_hinge = top_agent.eval(train_gen, test_gen, top_time_bins, lambda_cox)
+                    isds, cindex, ibs, mae_uncensored, mae_hinge, maepo = top_agent.eval(train_gen, test_gen, top_time_bins, lambda_cox)
                     results_dict[num_seqs][trial][type_agent] = {
                                                 'hyperparam_names': hyperparams['names'],
                                                 'hyperparam_vals': top_hyperparams,
                                                 'cindex': cindex,
                                                 'ibs': ibs,
                                                 'mae_uncensored': mae_uncensored,
-                                                'mae_hinge': mae_hinge
+                                                'mae_hinge': mae_hinge,
+                                                'mae_po': maepo
                                                 }
-                    with open(output_file, 'w') as out:
-                        json.dump(results_dict, out, indent=4)
+                    # with open(output_file, 'w') as out:
+                    #     json.dump(results_dict, out, indent=4)
                         
     except KeyboardInterrupt:
         gc.collect()

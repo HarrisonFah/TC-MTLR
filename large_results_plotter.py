@@ -18,7 +18,8 @@ METRICS = {
             'C-Index': 'cindex',
             'IBS': 'ibs', 
             'MAE-Uncensored': 'mae_uncensored',
-            'MAE-Hinge': 'mae_hinge'
+            'MAE-Hinge': 'mae_hinge',
+            'MAE-PO': 'mae_po'
             }
 
 if __name__ == '__main__':  

@@ -1,3 +1,14 @@
 venv/
-data/
+data/lastfm-dataset-1K
+data/aids.csv
+data/AIDS.pkl
+data/DOC-10026794.dat
+data/LargeRW.pkl
+data/LastFM.pkl
+data/NASA.pkl
+data/PBC.pkl
+data/pbc-seqs.pkl
+data/SmallRW.pkl
+data/test_FD001.txt
+data/train_FD001.txt
 Results/

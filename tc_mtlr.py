@@ -269,14 +269,17 @@ class TC_MTLR(object):
 		eval_state = torch.tensor(eval_state).to(device)
 		isds = self.get_isd(eval_state).detach().cpu().numpy()
 		isds[:,-1] = np.zeros((isds.shape[0],))
-		evaluator = SurvivalEvaluator(isds, self.time_bins, eval_times, ~eval_censor, train_times, train_censor)
+		
+		evaluator = SurvivalEvaluator(isds, self.time_bins, eval_times, ~eval_censor, train_times, ~train_censor)
 		predicted_times = evaluator.predict_time_from_curve(evaluator.predict_time_method)
+
 
 		cindex, concordant_pairs, total_pairs = evaluator.concordance(ties="None")
 		ibs = evaluator.integrated_brier_score(num_points=isds.shape[1], IPCW_weighted=True, draw_figure=False)
 		mae_uncensored = evaluator.mae(method='Uncensored')
 		mae_hinge = evaluator.mae(method='Hinge')
+		maepo = evaluator.mae(method='Pseudo_obs', weighted=True, truncated_time=np.max(eval_times))
 
-		return isds, cindex, ibs, mae_uncensored, mae_hinge
+		return isds, cindex, ibs, mae_uncensored, mae_hinge, maepo
 
 		
