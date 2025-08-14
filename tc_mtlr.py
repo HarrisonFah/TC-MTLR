@@ -160,12 +160,15 @@ class TC_MTLR(object):
 			z = self.time_bins
 			bellman = (reward + self.discount * not_done * z) #calculates the bellman value for each time bin
 			bellman = ((1-self.lambda_)*bellman + self.lambda_*(bellman*censors[:, None] + times.repeat((1, bellman.shape[1]))*(~censors[:, None]))).clamp(min(self.time_bins), max(self.time_bins)-(1e-6)) #calculates the bellman value for each time bin
-			buckets = torch.bucketize(bellman, z) #gets the index of time bins that each bellman value falls into
-			l = (buckets - 1).clip(min=0, max=(z.shape[0]-2)) #gets the lower index
-			u = l + 1 #gets the upper index
+			buckets = torch.bucketize(bellman, z, right=True) #gets the index of time bins that each bellman value falls into
+			l = (buckets - 1).clip(min=0, max=(z.shape[0]-1)) #gets the lower index
+			u = (l + 1).clip(min=1, max=(z.shape[0]-1)) #gets the upper index
 			l_val = self.time_bins[l] #gets the value of lower time bin
 			u_val = self.time_bins[u] #gets the value of upper time bin
-			b = l + (bellman - l_val)/(u_val - l_val) #finds the continuous 'index' of bellman value in the time bin array
+			b = l + (bellman - l_val)/((u_val - l_val).clip(min=1e-5)) #finds the continuous 'index' of bellman value in the time bin array
+			terminal_idxs = ~(not_done.bool()).repeat((1, z.shape[0]))
+			b[terminal_idxs] = l[terminal_idxs].float() #set the index of termial transitions to the lower time bin
+			b[l == u] = l[l == u].float() #set the index where the bellman value is greater than the horizon to the lower time bin
 
 			#distributes probability to neighbors based on distance to each of them
 			d_m_l = (u + (l == u).float() - b) * next_probs 

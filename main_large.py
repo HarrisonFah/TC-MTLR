@@ -70,7 +70,6 @@ if __name__ == '__main__':
                 seed = randint(1, 1000)
                 print(f'\tTrial: {trial}')
                 results_dict[num_seqs][trial] = {}
-                #for type_agent in ["SA", "LambdaSA", "DeepLambdaSA", "TC_MTLR", "MTLR"]:
                 for type_agent in ["SA", "DeepLambdaSA", "TC_MTLR", "MTLR"]:
                     print(f'\t\tAgent: {type_agent}')
                     train_gen = None

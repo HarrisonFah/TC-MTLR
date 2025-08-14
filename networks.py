@@ -93,9 +93,6 @@ class MLP(hk.Module):
 
         self.linear1 = hk.Linear(output_size=self._hidden_size, with_bias=True)
         self.norm = hk.BatchNorm(**self._bn_config)
-        # self.norm = hk.LayerNorm(axis=-1,
-        #             create_scale=True,
-        #             create_offset=True)
         self.linear2 = hk.Linear(
             output_size=self._output_size, with_bias=False)
 

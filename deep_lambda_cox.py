@@ -79,7 +79,6 @@ def _get_weights(s_wgt, h_wgt, h_tgt, c, lambda_, T, b_size):
         h = lambda_ * next_h + (1-lambda_) * next_s_wgt
         aux = jnp.ones_like(h_wgt[:, 0], dtype=jnp.float32)
         value = jax.lax.select(c, aux,  h_wgt[:, 0].astype(jnp.float32))
-        # value = jnp.where(c, aux, h_wgt[:, 0].astype(jnp.float32))
         h = jnp.roll(h, 1)
         h = h.at[:, 0].set(value)
 

@@ -6,7 +6,7 @@ import yaml
 import argparse
 import gc
 import itertools
-from random import randint
+from numpy import random
 import time
 
 from lambda_cox import LambdaSA
@@ -64,11 +64,12 @@ if __name__ == '__main__':
 
     try:
         results_dict = {}
+        trial_seeds = random.randint(1, 1000, size=(config['num_trials'],)) #generate seeds so each trial across training sizes includes samples from previous training sizes
         for num_seqs in num_seqs_list:
             print(f'Number of Sequences: {num_seqs}')
             results_dict[num_seqs] = {}
             for trial in range(config['num_trials']):
-                seed = randint(1, 1000)
+                seed = trial_seeds[trial]
                 print(f'\tTrial: {trial}')
                 results_dict[num_seqs][trial] = {}
                 for type_agent in ["SA", "LambdaSA", "DeepLambdaSA", "TC_MTLR", "MTLR"]:
@@ -132,7 +133,6 @@ if __name__ == '__main__':
                         else:
                             agent.train(train_gen)
                         end_time = time.time()
-                        print("Elapsed Time (s):", end_time - start_time)
 
                         isds, cindex, ibs, mae_uncensored, mae_hinge, maepo = agent.eval(train_gen, val_gen, agent.time_bins, lambda_cox)
                         if cindex > top_cindex:
@@ -151,8 +151,8 @@ if __name__ == '__main__':
                                                 'mae_hinge': mae_hinge,
                                                 'mae_po': maepo
                                                 }
-                    # with open(output_file, 'w') as out:
-                    #     json.dump(results_dict, out, indent=4)
+                    with open(output_file, 'w') as out:
+                        json.dump(results_dict, out, indent=4)
                         
     except KeyboardInterrupt:
         gc.collect()

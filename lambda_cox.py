@@ -154,20 +154,9 @@ class LambdaSA(BaseSA):
         # Outer loop
         losses = []
         for i in range(self.num_steps):
-            # print('\n\n Step (outer loop) {}\n\n'.format(i))
             ys, ws = self._update_target(
                 X_train, ts_train, cs_train, self.lambda_)
             loss = self._inner_loop(X_train[:, 0], ys, ws)
             losses.append(loss)
-
-        # if self.output_file is not None:
-        #     if not os.path.exists(self.output_file):
-        #         os.makedirs(self.output_file)
-
-        #     df = pd.DataFrame({
-        #         "loss": losses,
-        #     })
-        #     path_csv = os.path.join(self.output_file, 'result.csv')
-        #     df.to_csv(path_csv)
 
         return losses
