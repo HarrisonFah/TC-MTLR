@@ -30,22 +30,23 @@ This repository builds upon the code provided by Mariana Vargas Vieyra for their
 
 3. To perform short/small dataset experiments, run the following line (changing the dataset name in the file):
    
-		```python main.py --config config/configs_{pbc/aids/smallrw}.yaml```
+   		python main.py --config config/configs_{pbc/aids/smallrw}.yaml
 
 	Then to plot the results, run the line (note the slightly different dataset names):
 
-		```python small_results_plotter.py --path Results/{aids/pbc2/small_rw}/results.json --name {PBC2/AIDS/SmallRW}```
+   		python small_results_plotter.py --path Results/{aids/pbc2/small_rw}/results.json --name {PBC2/AIDS/SmallRW}
 
 4. To perform long/large dataset experiments, run the following line:
    
-		```python main_large.py --config config/configs_{lastfm/nasa/largerw}.yaml```
+		python main_large.py --config config/configs_{lastfm/nasa/largerw}.yaml
 
 	Then to print the results, run the line:
 
-		```python large_results_plotter.py --path Results/{lastfm/nasa/large_rw}/results.json --name {LastFM/NASA/LargeRW}```
+		python large_results_plotter.py --path Results/{lastfm/nasa/large_rw}/results.json --name {LastFM/NASA/LargeRW}
 
 ## Citing the paper
 To cite the paper, use the following information:
-		```To be filled in after submission```
+
+	To be filled in after submission
 
 
