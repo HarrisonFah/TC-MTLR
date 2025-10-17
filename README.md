@@ -47,6 +47,6 @@ This repository builds upon the code provided by Mariana Vargas Vieyra for their
 ## Citing the paper
 To cite the paper, use the following information:
 
-	To be filled in after submission
+	To do after acceptance
 
 
