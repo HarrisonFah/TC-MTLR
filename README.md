@@ -1,7 +1,10 @@
 # TC-MTLR
 Code for reproducing results from the paper **"Temporally Consistent Survival Prediction for Non-Uniform Longitudinal Data"** by Harrison Fah, Russell Greiner, Roger A. Dixon. 
 
-This repository builds upon the code provided by Mariana Vargas Vieyra for their paper "Deep End-to-End Survival Analysis with Temporal Consistency"
+This repository builds upon the code provided by Mariana Vargas Vieyra for their paper:
+
+	M.V. Vieyra, P. Frossard, Deep end-to-end survival analysis with temporal consistency, 2024, http://dx.doi.org/10.48550/arXiv.2410.06786, ArXiv preprint.
+
 
 ## Steps for Running Experiments
 
@@ -47,6 +50,6 @@ This repository builds upon the code provided by Mariana Vargas Vieyra for their
 ## Citing the paper
 To cite the paper, use the following information:
 
-	To do after acceptance
+	Fah, H., Greiner, R., & Dixon, R. A. (2026). Temporally consistent survival prediction for non-uniform longitudinal data. Journal of Biomedical Informatics, 176, 104996. https://doi.org/10.1016/j.jbi.2026.104996 
 
 
