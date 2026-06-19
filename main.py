@@ -14,6 +14,7 @@ from baseline_cox import SA
 from deep_lambda_cox import DeepLambdaSA
 from tc_mtlr import TC_MTLR
 from mtlr import MTLR
+from cox_tvc import CoxTVC
 from utils import median_time_bins, quantile_time_bins
 
 if __name__ == '__main__':  
@@ -72,7 +73,7 @@ if __name__ == '__main__':
                 seed = trial_seeds[trial]
                 print(f'\tTrial: {trial}')
                 results_dict[num_seqs][trial] = {}
-                for type_agent in ["SA", "LambdaSA", "DeepLambdaSA", "TC_MTLR", "MTLR"]:
+                for type_agent in ["CoxTVC", "SA", "LambdaSA", "DeepLambdaSA", "TC_MTLR", "MTLR"]:
                     print(f'\t\tAgent: {type_agent}')
                     train_gen = None
                     val_gen = None
@@ -113,18 +114,22 @@ if __name__ == '__main__':
                             agent = TC_MTLR(config, seed)
                         elif type_agent == 'MTLR':
                             agent = MTLR(config, seed)
+                        elif type_agent == 'CoxTVC':
+                            agent = CoxTVC(config, seed)
                         else:
                             raise Exception('Agent type not found')
 
                         if type_agent == 'LambdaSA' and X_train is None:
                             X_train, ts_train, cs_train, train_gen, val_gen, test_gen = agent.get_train_val_test(test_size=size, num_train_seqs=num_seqs)
+                        elif type_agent == 'CoxTVC' and X_train is None:
+                            train_gen, train_gen_initial, val_gen, test_gen = agent.get_train_val_test(test_size=size, num_train_seqs=num_seqs)
                         elif train_gen is None:
                             train_gen, val_gen, test_gen = agent.get_train_val_test(test_size=size, num_train_seqs=num_seqs)
                             state, next_state, reward, not_done, times, censors = train_gen.get_all_data()
 
                         if type_agent in ['SA', 'LambdaSA', 'DeepLambdaSA']:
                             agent.set_time_bins(train_gen, val_gen, test_gen)
-                        else:
+                        elif type_agent in ['TC_MTLR', 'MTLR']:
                             agent.init_networks(train_gen, val_gen, test_gen)
                         
                         start_time = time.time()
@@ -134,14 +139,20 @@ if __name__ == '__main__':
                             agent.train(train_gen)
                         end_time = time.time()
 
-                        isds, cindex, ibs, mae_uncensored, mae_hinge, maepo = agent.eval(train_gen, val_gen, agent.time_bins, lambda_cox)
+                        if type_agent == 'CoxTVC':
+                            isds, cindex, ibs, mae_uncensored, mae_hinge, maepo = agent.eval(train_gen_initial, val_gen)
+                        else:
+                            isds, cindex, ibs, mae_uncensored, mae_hinge, maepo = agent.eval(train_gen, val_gen, agent.time_bins, lambda_cox)
                         if cindex > top_cindex:
                             top_cindex = cindex
                             top_hyperparams = hyperparam_vals
                             top_agent = agent
                             top_time_bins = agent.time_bins
 
-                    isds, cindex, ibs, mae_uncensored, mae_hinge, maepo = top_agent.eval(train_gen, test_gen, top_time_bins, lambda_cox)
+                    if type_agent == 'CoxTVC':
+                        isds, cindex, ibs, mae_uncensored, mae_hinge, maepo = top_agent.eval(train_gen_initial, test_gen)
+                    else:
+                        isds, cindex, ibs, mae_uncensored, mae_hinge, maepo = top_agent.eval(train_gen, test_gen, top_time_bins, lambda_cox)
                     results_dict[num_seqs][trial][type_agent] = {
                                                 'hyperparam_names': hyperparams['names'],
                                                 'hyperparam_vals': top_hyperparams,

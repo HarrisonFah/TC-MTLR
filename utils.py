@@ -722,6 +722,45 @@ class MTLRDataGenerator(BaseDataGenerator):
                     not_done[-1] = 0
             yield state, next_state, reward, not_done, censors, times
 
+#convert the longitudinal data into the counting process format for use with the Cox-TVC model
+def convert_to_counting_process(X, ts, cs, y, rs, seqs_ts, all_states=True, low_var_cols=[], threshold=1e-5):
+    num_samples = X.shape[0]
+    df = pd.DataFrame(columns=['start', 'stop', 'id', 'event'] + ['var' + str(i+1) for i in range(X.shape[2])])
+
+    row_idx = 0
+    for sample_idx in range(num_samples):
+        start_time = 0
+        censored = cs[sample_idx]
+        event = not censored
+        time = seqs_ts[sample_idx]
+        data = X[sample_idx]
+        rewards = rs[sample_idx]
+        end_idx = ts[sample_idx] - censored
+        if all_states:
+            for measurement_idx in range(end_idx):
+                stop_time = start_time + rewards[measurement_idx]
+                row = [start_time, stop_time, sample_idx, event] + list(data[measurement_idx])
+                df.loc[row_idx] = row
+                start_time = stop_time
+                row_idx += 1
+        else:
+            row = [0, time[0], sample_idx, event] + list(data[0])
+            df.loc[row_idx] = row
+            row_idx += 1
+
+    if len(low_var_cols) > 0:
+        df = df.drop(columns=low_var_cols)
+    else:
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        low_var_cols = [col for col in numeric_cols if df[col].var() < threshold]
+        for keep_col in ['start', 'stop', 'id', 'event']:
+            if keep_col in low_var_cols:
+                low_var_cols.remove(keep_col)
+        if low_var_cols:
+            df = df.drop(columns=low_var_cols)
+
+    return df, low_var_cols
+
 def kaplan_meier(ts, cs):
     """Kaplan-Meier estimator of survival curve."""
     cs = cs.astype(jnp.bool_)

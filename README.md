@@ -3,6 +3,8 @@ Code for reproducing results from the paper "Temporally Consistent Survival Pred
 
 This repository builds upon the code provided by Mariana Vargas Vieyra for their paper "Deep End-to-End Survival Analysis with Temporal Consistency"
 
+For a standalone version of the TC-MTLR algorithm that is much easier to adapt to other projects, check out TC-MTLR.py instead.
+
 ## Steps for Running Experiments
 
 1. Install the following python packages (experiments were run using python version 3.10.11):
@@ -21,12 +23,12 @@ This repository builds upon the code provided by Mariana Vargas Vieyra for their
 2. Follow the instructions in the data folder to download and preprocess the datasets used in the experiments.
 
 3. To perform short/small dataset experiments, run the following line (changing the dataset name in the file):
-		python main.py --config config/configs_{pbc/aids/smallrw}.yaml
+		python main.py --config configs/config_{pbc/aids/smallrw}.yaml
 Then to plot the results, run the line (note the slightly different dataset names):
 		python small_results_plotter.py --path Results/{aids/pbc2/small_rw}/results.json --name {PBC2/AIDS/SmallRW}
 
 4. To perform long/large dataset experiments, run the following line:
-		python main_large.py --config config/configs_{lastfm/nasa/largerw}.yaml
+		python main_large.py --config configs/config_{lastfm/nasa/largerw}.yaml
 Then to print the results, run the line:
 		python large_results_plotter.py --path Results/{lastfm/nasa/large_rw}/results.json --name {LastFM/NASA/LargeRW}
 

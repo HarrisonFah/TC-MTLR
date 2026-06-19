@@ -7,13 +7,15 @@ import numpy as np
 NUM_TRIALS = 5
 SEQS_LIST = [10, 25, 50, 100, 150, 200]
 ALGS = {
+        'Cox-TVC': 'CoxTVC',
         'Landmarking': 'SA', 
         'TCSR': 'LambdaSA', 
         'DeepTCSR': 'DeepLambdaSA', 
         'TC-MTLR': 'TC_MTLR', 
-        'MTLR': 'MTLR'
+        'MTLR': 'MTLR',
         }
 ALG_COLORS = {
+        'Cox-TVC': 'cyan',
         'Landmarking': 'red', 
         'TCSR': 'blue', 
         'DeepTCSR': 'purple', 
